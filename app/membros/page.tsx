@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -18,8 +18,11 @@ import { DashboardShell } from "@/components/dashboard-shell";
 import { AnimatedNumber } from "@/components/animated-number";
 import { DeleteRecordDialog, PersonRecordDialog, PersonRecordValues } from "@/components/person-record-dialog";
 import { toast } from "sonner";
+import { NumberSkeleton, TableSkeleton } from "@/components/skeleton";
+import { visiblePageNumbers } from "@/lib/pagination";
 
 type Member = {
+  id: string;
   initials: string;
   name: string;
   email: string;
@@ -30,33 +33,26 @@ type Member = {
   baptism: "Batizado" | "Aguardando";
   date: string;
   isNew?: boolean;
+  phone?: string;
+  birthDate?: string;
+  gender?: string;
+  civilStatus?: string;
+  cpf?: string;
+  zipCode?: string;
+  address?: string;
+  neighborhood?: string;
+  city?: string;
+  state?: string;
+  role?: string;
+  baptismDate?: string;
+  notes?: string;
 };
-
-const initialMembers: Member[] = [
-  { initials: "AC", name: "Ana Clara Oliveira", email: "ana.clara@email.com", ministry: "Louvor", ministryColor: "blue", cell: "Célula Esperança", status: "Ativo", baptism: "Batizado", date: "15 Mai, 2021" },
-  { initials: "MS", name: "Marcos Santos", email: "marcos.santos@email.com", ministry: "Missões", ministryColor: "green", cell: "Célula Graça", status: "Ativo", baptism: "Batizado", date: "10 Jan, 2020" },
-  { initials: "JP", name: "Julia Pereira", email: "julia.p@email.com", ministry: "Nenhum", ministryColor: "gray", cell: "Sem célula", status: "Inativo", baptism: "Aguardando", date: "22 Ago, 2023" },
-  { initials: "RM", name: "Ricardo Mendes", email: "mendes.r@email.com", ministry: "Acolhimento", ministryColor: "purple", cell: "Célula Família", status: "Ativo", baptism: "Batizado", date: "05 Abr, 2019" },
-  { initials: "BL", name: "Beatriz Lima", email: "bia.lima@email.com", ministry: "Infantil", ministryColor: "purple", cell: "Célula Esperança", status: "Ativo", baptism: "Batizado", date: "18 Fev, 2022", isNew: true },
-  { initials: "GS", name: "Gabriel Souza", email: "gabriel.s@email.com", ministry: "Louvor", ministryColor: "blue", cell: "Célula Jovens", status: "Ativo", baptism: "Aguardando", date: "03 Mar, 2024", isNew: true },
-  { initials: "CM", name: "Carla Martins", email: "carla.m@email.com", ministry: "Missões", ministryColor: "green", cell: "Célula Graça", status: "Ativo", baptism: "Batizado", date: "11 Set, 2018" },
-  { initials: "PH", name: "Paulo Henrique", email: "paulo.h@email.com", ministry: "Acolhimento", ministryColor: "purple", cell: "Célula Família", status: "Inativo", baptism: "Batizado", date: "29 Jun, 2017" },
-  { initials: "LF", name: "Larissa Freitas", email: "larissa.f@email.com", ministry: "Infantil", ministryColor: "purple", cell: "Célula Jovens", status: "Ativo", baptism: "Aguardando", date: "07 Mai, 2024", isNew: true },
-  { initials: "DR", name: "Daniel Rocha", email: "daniel.r@email.com", ministry: "Louvor", ministryColor: "blue", cell: "Célula Esperança", status: "Ativo", baptism: "Batizado", date: "14 Nov, 2020" },
-  { initials: "MT", name: "Mariana Teixeira", email: "mariana.t@email.com", ministry: "Nenhum", ministryColor: "gray", cell: "Sem célula", status: "Ativo", baptism: "Aguardando", date: "23 Abr, 2024", isNew: true },
-  { initials: "FC", name: "Felipe Costa", email: "felipe.c@email.com", ministry: "Missões", ministryColor: "green", cell: "Célula Graça", status: "Inativo", baptism: "Batizado", date: "17 Jul, 2016" },
-  { initials: "ES", name: "Eduarda Silva", email: "eduarda.s@email.com", ministry: "Acolhimento", ministryColor: "purple", cell: "Célula Família", status: "Ativo", baptism: "Batizado", date: "09 Out, 2021" },
-  { initials: "RA", name: "Rafael Alves", email: "rafael.a@email.com", ministry: "Louvor", ministryColor: "blue", cell: "Célula Jovens", status: "Ativo", baptism: "Aguardando", date: "28 Mai, 2024", isNew: true },
-  { initials: "NC", name: "Natália Cardoso", email: "natalia.c@email.com", ministry: "Infantil", ministryColor: "purple", cell: "Célula Esperança", status: "Ativo", baptism: "Batizado", date: "12 Dez, 2019" },
-  { initials: "VC", name: "Vinícius Carvalho", email: "vinicius.c@email.com", ministry: "Nenhum", ministryColor: "gray", cell: "Sem célula", status: "Inativo", baptism: "Aguardando", date: "06 Jan, 2023" },
-  { initials: "IS", name: "Isabela Santos", email: "isabela.s@email.com", ministry: "Missões", ministryColor: "green", cell: "Célula Graça", status: "Ativo", baptism: "Batizado", date: "19 Ago, 2022" },
-  { initials: "HO", name: "Henrique Oliveira", email: "henrique.o@email.com", ministry: "Acolhimento", ministryColor: "purple", cell: "Célula Família", status: "Ativo", baptism: "Aguardando", date: "02 Mai, 2024", isNew: true },
-];
 
 const pageSize = 6;
 
 export default function MembersPage() {
-  const [members, setMembers] = useState(initialMembers);
+  const [members, setMembers] = useState<Member[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [ministry, setMinistry] = useState("all");
   const [status, setStatus] = useState("all");
@@ -65,6 +61,28 @@ export default function MembersPage() {
   const [dialogMode, setDialogMode] = useState<"create" | "edit" | null>(null);
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Member | null>(null);
+
+  async function loadMembers() {
+    setLoading(true);
+    try {
+      const response = await fetch("/api/members", { cache: "no-store" });
+      if (!response.ok) throw new Error("Falha ao carregar membros");
+      const records = await response.json() as Array<Omit<Member, "initials" | "status" | "baptism" | "date"> & { status: string; baptism: string; date: string }>;
+      setMembers(records.map((member) => ({
+        ...member,
+        initials: initialsFrom(member.name),
+        status: member.status === "active" ? "Ativo" : "Inativo",
+        baptism: member.baptism === "baptized" ? "Batizado" : "Aguardando",
+        date: formatDate(member.date),
+      })));
+    } catch {
+      toast.error("Não foi possível carregar os membros");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { void loadMembers(); }, []);
 
   const ministries = [...new Set(members.map((member) => member.ministry))];
   const filteredMembers = useMemo(() => {
@@ -97,33 +115,34 @@ export default function MembersPage() {
     setPage(1);
   }
 
-  function saveMember(values: PersonRecordValues) {
-    const member: Member = {
-      initials: initialsFrom(values.name),
-      name: values.name,
-      email: values.email,
-      ministry: values.ministry,
-      ministryColor: ministryColor(values.ministry),
-      cell: selectedMember?.cell ?? "Sem célula",
-      status: values.status === "Inativo" ? "Inativo" : "Ativo",
-      baptism: values.baptismDate ? "Batizado" : "Aguardando",
-      date: selectedMember?.date ?? new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short", year: "numeric" }).format(new Date()).replace(".", ""),
-      isNew: selectedMember?.isNew ?? true,
-    };
-    setMembers((current) => dialogMode === "edit" && selectedMember
-      ? current.map((item) => item.email === selectedMember.email ? member : item)
-      : [member, ...current]);
-    toast.success(dialogMode === "edit" ? "Membro alterado com sucesso" : "Membro cadastrado com sucesso");
-    setDialogMode(null);
-    setSelectedMember(null);
-    setPage(1);
+  async function saveMember(values: PersonRecordValues) {
+    const editing = dialogMode === "edit" && selectedMember;
+    const response = await fetch(editing ? `/api/members/${selectedMember.id}` : "/api/members", {
+      method: editing ? "PUT" : "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(values),
+    });
+    if (!response.ok) {
+      toast.error("Não foi possível salvar o membro");
+      return false;
+    }
+    toast.success(editing ? "Membro alterado com sucesso" : "Membro cadastrado com sucesso");
+    setDialogMode(null); setSelectedMember(null); setPage(1);
+    await loadMembers();
+    return true;
   }
 
-  function confirmDelete() {
-    if (!deleteTarget) return;
-    setMembers((current) => current.filter((member) => member.email !== deleteTarget.email));
+  async function confirmDelete() {
+    if (!deleteTarget) return false;
+    const response = await fetch(`/api/members/${deleteTarget.id}`, { method: "DELETE" });
+    if (!response.ok) {
+      toast.error("Não foi possível excluir o membro");
+      return false;
+    }
     toast.error("Membro excluído com sucesso");
     setDeleteTarget(null);
+    await loadMembers();
+    return true;
   }
 
   return (
@@ -176,28 +195,29 @@ export default function MembersPage() {
                       <td data-label="Ações"><div className="member-actions"><button aria-label={`Visualizar ${member.name}`} onClick={() => toast.info(`${member.name} está ${member.status.toLowerCase()} em ${member.ministry}.`)}><Eye /></button><button aria-label={`Editar ${member.name}`} onClick={() => { setSelectedMember(member); setDialogMode("edit"); }}><Pencil /></button><button aria-label={`Excluir ${member.name}`} onClick={() => setDeleteTarget(member)}><Trash2 /></button></div></td>
                     </tr>
                   ))}
-                  {!visibleMembers.length && <tr><td className="members-empty" colSpan={7}>Nenhum membro encontrado com esses filtros.</td></tr>}
+                  {!loading && !visibleMembers.length && <tr><td className="members-empty" colSpan={7}>Nenhum membro encontrado com esses filtros.</td></tr>}
                 </tbody>
               </table>
             </div>
+            {loading && <TableSkeleton rows={6} columns={5} />}
             <div className="members-pagination">
               <span>Mostrando {start}-{end} de {filteredMembers.length} membros</span>
               <div>
                 <button disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)} aria-label="Página anterior"><ChevronLeft /></button>
-                {Array.from({ length: pageCount }, (_, index) => index + 1).map((number) => <button className={number === currentPage ? "current" : undefined} onClick={() => setPage(number)} key={number}>{number}</button>)}
+                {visiblePageNumbers(currentPage, pageCount).map((number) => <button className={number === currentPage ? "current" : undefined} onClick={() => setPage(number)} key={number}>{number}</button>)}
                 <button disabled={currentPage === pageCount} onClick={() => setPage(currentPage + 1)} aria-label="Próxima página"><ChevronRight /></button>
               </div>
             </div>
           </div>
 
           <section className="member-stats" aria-label="Resumo de membros">
-            <MemberStat label="Total ativos" value={members.filter((member) => member.status === "Ativo").length} icon={UserCheck} color="neutral" />
-            <MemberStat label="Novos este mês" value={members.filter((member) => member.isNew).length} prefix="+" icon={Landmark} color="blue" />
-            <MemberStat label="Aguardando batismo" value={members.filter((member) => member.baptism === "Aguardando").length} icon={Droplets} color="green" />
+            <MemberStat loading={loading} label="Total ativos" value={members.filter((member) => member.status === "Ativo").length} icon={UserCheck} color="neutral" />
+            <MemberStat loading={loading} label="Novos este mês" value={members.filter((member) => member.isNew).length} prefix="+" icon={Landmark} color="blue" />
+            <MemberStat loading={loading} label="Aguardando batismo" value={members.filter((member) => member.baptism === "Aguardando").length} icon={Droplets} color="green" />
           </section>
         </section>
       </main>
-      <PersonRecordDialog open={dialogMode !== null} mode={dialogMode ?? "create"} kind="member" initialValues={selectedMember ? { name: selectedMember.name, email: selectedMember.email, ministry: selectedMember.ministry, status: selectedMember.status, baptismDate: selectedMember.baptism === "Batizado" ? "2020-01-01" : "" } : undefined} onClose={() => { setDialogMode(null); setSelectedMember(null); }} onSubmit={saveMember} />
+      <PersonRecordDialog open={dialogMode !== null} mode={dialogMode ?? "create"} kind="member" initialValues={selectedMember ? memberValues(selectedMember) : undefined} onClose={() => { setDialogMode(null); setSelectedMember(null); }} onSubmit={saveMember} />
       <DeleteRecordDialog open={deleteTarget !== null} name={deleteTarget?.name ?? ""} kind="member" onClose={() => setDeleteTarget(null)} onConfirm={confirmDelete} />
     </DashboardShell>
   );
@@ -207,6 +227,14 @@ function initialsFrom(name: string) {
   return name.trim().split(/\s+/).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("");
 }
 
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(value)).replace(".", "");
+}
+
+function memberValues(member: Member): Partial<PersonRecordValues> {
+  return { name: member.name, email: member.email, phone: member.phone, birthDate: member.birthDate?.slice(0, 10), gender: member.gender, civilStatus: member.civilStatus, cpf: member.cpf, zipCode: member.zipCode, address: member.address, neighborhood: member.neighborhood, city: member.city, state: member.state, role: member.role, ministry: member.ministry, baptismDate: member.baptismDate?.slice(0, 10), status: member.status, notes: member.notes };
+}
+
 function ministryColor(ministry: string): Member["ministryColor"] {
   if (ministry === "Louvor") return "blue";
   if (ministry === "Missões") return "green";
@@ -214,6 +242,6 @@ function ministryColor(ministry: string): Member["ministryColor"] {
   return "purple";
 }
 
-function MemberStat({ label, value, prefix, icon: Icon, color }: { label: string; value: number; prefix?: string; icon: typeof UserCheck; color: string }) {
-  return <article className="member-stat-card"><span className={`member-stat-icon ${color}`}><Icon /></span><span><small>{label}</small><strong><AnimatedNumber value={value} prefix={prefix} /></strong></span></article>;
+function MemberStat({ label, value, prefix, icon: Icon, color, loading }: { label: string; value: number; prefix?: string; icon: typeof UserCheck; color: string; loading: boolean }) {
+  return <article className="member-stat-card"><span className={`member-stat-icon ${color}`}><Icon /></span><span><small>{label}</small><strong>{loading ? <NumberSkeleton /> : <AnimatedNumber value={value} prefix={prefix} />}</strong></span></article>;
 }

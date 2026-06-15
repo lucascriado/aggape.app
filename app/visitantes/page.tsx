@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -19,8 +19,11 @@ import { DashboardShell } from "@/components/dashboard-shell";
 import { AnimatedNumber } from "@/components/animated-number";
 import { DeleteRecordDialog, PersonRecordDialog, PersonRecordValues } from "@/components/person-record-dialog";
 import { toast } from "sonner";
+import { NumberSkeleton, TableSkeleton } from "@/components/skeleton";
+import { visiblePageNumbers } from "@/lib/pagination";
 
 type Visitor = {
+  id: string;
   initials: string;
   name: string;
   email: string;
@@ -28,29 +31,26 @@ type Visitor = {
   invitedBy: string;
   status: "Aguardando Contato" | "Em Acompanhamento" | "Integrado";
   recent?: boolean;
+  phone?: string;
+  birthDate?: string;
+  gender?: string;
+  civilStatus?: string;
+  cpf?: string;
+  zipCode?: string;
+  address?: string;
+  neighborhood?: string;
+  city?: string;
+  state?: string;
+  notes?: string;
 };
-
-const initialVisitors: Visitor[] = [
-  { initials: "RL", name: "Ricardo Lima", email: "ricardo.lima@email.com", date: "15 Mai 2024", invitedBy: "Pr. Anderson", status: "Aguardando Contato", recent: true },
-  { initials: "MS", name: "Mariana Souza", email: "mari.souza@email.com", date: "12 Mai 2024", invitedBy: "Espontâneo", status: "Em Acompanhamento", recent: true },
-  { initials: "FB", name: "Fernando Borges", email: "fborges@email.com", date: "05 Mai 2024", invitedBy: "Lucas Santos", status: "Integrado", recent: true },
-  { initials: "CP", name: "Clara Pereira", email: "clara.p@email.com", date: "15 Mai 2024", invitedBy: "Marta Oliveira", status: "Aguardando Contato", recent: true },
-  { initials: "AM", name: "André Martins", email: "andre.m@email.com", date: "28 Abr 2024", invitedBy: "Paulo Henrique", status: "Em Acompanhamento" },
-  { initials: "LC", name: "Letícia Costa", email: "leticia.c@email.com", date: "21 Abr 2024", invitedBy: "Ana Clara", status: "Integrado" },
-  { initials: "JV", name: "João Vitor", email: "joao.v@email.com", date: "14 Abr 2024", invitedBy: "Espontâneo", status: "Aguardando Contato" },
-  { initials: "BS", name: "Bianca Santos", email: "bianca.s@email.com", date: "07 Abr 2024", invitedBy: "Marcos Santos", status: "Em Acompanhamento" },
-  { initials: "GM", name: "Gustavo Melo", email: "gustavo.m@email.com", date: "31 Mar 2024", invitedBy: "Ricardo Mendes", status: "Integrado" },
-  { initials: "TA", name: "Tainá Alves", email: "taina.a@email.com", date: "24 Mar 2024", invitedBy: "Marta Oliveira", status: "Aguardando Contato" },
-  { initials: "RB", name: "Renata Barbosa", email: "renata.b@email.com", date: "17 Mar 2024", invitedBy: "Pr. Anderson", status: "Em Acompanhamento" },
-  { initials: "DN", name: "Diego Nunes", email: "diego.n@email.com", date: "10 Mar 2024", invitedBy: "Espontâneo", status: "Integrado" },
-];
 
 const pageSize = 4;
 const tabs = ["Todos", "Recentes", "Pendentes"] as const;
 type Tab = typeof tabs[number];
 
 export default function VisitorsPage() {
-  const [visitors, setVisitors] = useState(initialVisitors);
+  const [visitors, setVisitors] = useState<Visitor[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState<Tab>("Todos");
   const [status, setStatus] = useState("all");
@@ -59,6 +59,22 @@ export default function VisitorsPage() {
   const [dialogMode, setDialogMode] = useState<"create" | "edit" | null>(null);
   const [selectedVisitor, setSelectedVisitor] = useState<Visitor | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Visitor | null>(null);
+
+  async function loadVisitors() {
+    setLoading(true);
+    try {
+      const response = await fetch("/api/visitors", { cache: "no-store" });
+      if (!response.ok) throw new Error("Falha ao carregar visitantes");
+      const records = await response.json() as Array<Omit<Visitor, "initials" | "status" | "date"> & { status: string; date: string }>;
+      setVisitors(records.map((visitor) => ({ ...visitor, initials: initialsFrom(visitor.name), status: visitorStatusFromDb(visitor.status), date: formatDate(visitor.date) })));
+    } catch {
+      toast.error("Não foi possível carregar os visitantes");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { void loadVisitors(); }, []);
 
   const inviters = [...new Set(visitors.map((visitor) => visitor.invitedBy))];
   const filtered = useMemo(() => {
@@ -92,30 +108,34 @@ export default function VisitorsPage() {
     setPage(1);
   }
 
-  function saveVisitor(values: PersonRecordValues) {
-    const visitor: Visitor = {
-      initials: initialsFrom(values.name),
-      name: values.name,
-      email: values.email,
-      date: selectedVisitor?.date ?? new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short", year: "numeric" }).format(new Date()).replace(".", ""),
-      invitedBy: values.invitedBy || "Espontâneo",
-      status: visitorStatus(values.status),
-      recent: selectedVisitor?.recent ?? true,
-    };
-    setVisitors((current) => dialogMode === "edit" && selectedVisitor
-      ? current.map((item) => item.email === selectedVisitor.email ? visitor : item)
-      : [visitor, ...current]);
-    toast.success(dialogMode === "edit" ? "Visitante alterado com sucesso" : "Visitante cadastrado com sucesso");
-    setDialogMode(null);
-    setSelectedVisitor(null);
-    setPage(1);
+  async function saveVisitor(values: PersonRecordValues) {
+    const editing = dialogMode === "edit" && selectedVisitor;
+    const response = await fetch(editing ? `/api/visitors/${selectedVisitor.id}` : "/api/visitors", {
+      method: editing ? "PUT" : "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(values),
+    });
+    if (!response.ok) {
+      toast.error("Não foi possível salvar o visitante");
+      return false;
+    }
+    toast.success(editing ? "Visitante alterado com sucesso" : "Visitante cadastrado com sucesso");
+    setDialogMode(null); setSelectedVisitor(null); setPage(1);
+    await loadVisitors();
+    return true;
   }
 
-  function confirmDelete() {
-    if (!deleteTarget) return;
-    setVisitors((current) => current.filter((visitor) => visitor.email !== deleteTarget.email));
-    toast.success("Visitante excluído com sucesso");
+  async function confirmDelete() {
+    if (!deleteTarget) return false;
+    const response = await fetch(`/api/visitors/${deleteTarget.id}`, { method: "DELETE" });
+    if (!response.ok) {
+      toast.error("Não foi possível excluir o visitante");
+      return false;
+    }
+    toast.error("Visitante excluído com sucesso");
     setDeleteTarget(null);
+    await loadVisitors();
+    return true;
   }
 
   return (
@@ -127,10 +147,10 @@ export default function VisitorsPage() {
         </section>
 
         <section className="visitor-stats" aria-label="Indicadores de visitantes">
-          <VisitorStat label="Total de visitantes" value={128} detail={<><AnimatedNumber value={12} prefix="+" suffix="%" /></>} color="default" />
-          <VisitorStat label="Aguardando contato" value={14} detail="Urgente" color="danger" />
-          <VisitorStat label="Em acompanhamento" value={42} icon={<Users />} color="tracking" />
-          <VisitorStat label="Integrados (mês)" value={26} icon={<PartyPopper />} color="success" />
+          <VisitorStat loading={loading} label="Total de visitantes" value={visitors.length} color="default" />
+          <VisitorStat loading={loading} label="Aguardando contato" value={visitors.filter((item) => item.status === "Aguardando Contato").length} detail="Urgente" color="danger" />
+          <VisitorStat loading={loading} label="Em acompanhamento" value={visitors.filter((item) => item.status === "Em Acompanhamento").length} icon={<Users />} color="tracking" />
+          <VisitorStat loading={loading} label="Integrados" value={visitors.filter((item) => item.status === "Integrado").length} icon={<PartyPopper />} color="success" />
         </section>
 
         <div className="member-filters visitor-filters">
@@ -176,19 +196,26 @@ export default function VisitorsPage() {
                 ))}
               </tbody>
             </table>
+            {!loading && !visible.length && <div className="members-empty">Nenhum visitante encontrado com esses filtros.</div>}
           </div>
+          {loading && <TableSkeleton rows={4} columns={5} />}
           <div className="visitor-pagination">
             <span>Mostrando {start}-{end} de {filtered.length} visitantes</span>
-            <div><button disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)}><ChevronLeft /></button>{Array.from({ length: pageCount }, (_, i) => i + 1).map((number) => <button className={number === currentPage ? "current" : undefined} key={number} onClick={() => setPage(number)}>{number}</button>)}<button disabled={currentPage === pageCount} onClick={() => setPage(currentPage + 1)}><ChevronRight /></button></div>
+            <div><button disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)}><ChevronLeft /></button>{visiblePageNumbers(currentPage, pageCount).map((number) => <button className={number === currentPage ? "current" : undefined} key={number} onClick={() => setPage(number)}>{number}</button>)}<button disabled={currentPage === pageCount} onClick={() => setPage(currentPage + 1)}><ChevronRight /></button></div>
           </div>
         </section>
 
         <section className="visitor-followup">
           <article className="integration-guide"><h3>Próximos Passos na Integração</h3><p>Lembre-se que o primeiro contato deve ser feito em até 48h após a visita para garantir uma maior taxa de retenção.</p><button><ClipboardList />Ver Manual de Integração</button></article>
-          <article className="reminders-card"><h3>Lembretes</h3><Reminder urgent title="Ligar para Ricardo Lima" detail="Vence hoje às 17:00" /><Reminder title="Visita Mariana Souza" detail="Agendado para Amanhã" /><button>Ver todos os lembretes</button></article>
+          <article className="reminders-card">
+            <h3>Lembretes</h3>
+            {visitors.filter((visitor) => visitor.status === "Aguardando Contato").slice(0, 2).map((visitor, index) => <Reminder key={visitor.id} urgent={index === 0} title={`Entrar em contato com ${visitor.name}`} detail={`Visitou em ${visitor.date}`} />)}
+            {!visitors.some((visitor) => visitor.status === "Aguardando Contato") && <p className="data-empty">Nenhum contato pendente.</p>}
+            <button>Ver todos os lembretes</button>
+          </article>
         </section>
       </main>
-      <PersonRecordDialog open={dialogMode !== null} mode={dialogMode ?? "create"} kind="visitor" initialValues={selectedVisitor ? { name: selectedVisitor.name, email: selectedVisitor.email, invitedBy: selectedVisitor.invitedBy, status: selectedVisitor.status } : { status: "Aguardando Contato" }} onClose={() => { setDialogMode(null); setSelectedVisitor(null); }} onSubmit={saveVisitor} />
+      <PersonRecordDialog open={dialogMode !== null} mode={dialogMode ?? "create"} kind="visitor" initialValues={selectedVisitor ? visitorValues(selectedVisitor) : { status: "Aguardando Contato" }} onClose={() => { setDialogMode(null); setSelectedVisitor(null); }} onSubmit={saveVisitor} />
       <DeleteRecordDialog open={deleteTarget !== null} name={deleteTarget?.name ?? ""} kind="visitor" onClose={() => setDeleteTarget(null)} onConfirm={confirmDelete} />
     </DashboardShell>
   );
@@ -202,12 +229,26 @@ function visitorStatus(status: string): Visitor["status"] {
   return status === "Integrado" || status === "Em Acompanhamento" ? status : "Aguardando Contato";
 }
 
+function visitorStatusFromDb(status: string): Visitor["status"] {
+  if (status === "integrated") return "Integrado";
+  if (status === "following_up") return "Em Acompanhamento";
+  return "Aguardando Contato";
+}
+
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(value)).replace(".", "");
+}
+
+function visitorValues(visitor: Visitor): Partial<PersonRecordValues> {
+  return { name: visitor.name, email: visitor.email, phone: visitor.phone, birthDate: visitor.birthDate?.slice(0, 10), gender: visitor.gender, civilStatus: visitor.civilStatus, cpf: visitor.cpf, zipCode: visitor.zipCode, address: visitor.address, neighborhood: visitor.neighborhood, city: visitor.city, state: visitor.state, notes: visitor.notes, invitedBy: visitor.invitedBy, status: visitor.status };
+}
+
 function statusClass(status: Visitor["status"]) {
   return status === "Aguardando Contato" ? "waiting" : status === "Em Acompanhamento" ? "tracking" : "integrated";
 }
 
-function VisitorStat({ label, value, detail, icon, color }: { label: string; value: number; detail?: React.ReactNode; icon?: React.ReactNode; color: string }) {
-  return <article className={`visitor-stat ${color}`}><small>{label}</small><div><strong><AnimatedNumber value={value} /></strong>{detail && <span>{detail}</span>}{icon && <i>{icon}</i>}</div></article>;
+function VisitorStat({ label, value, detail, icon, color, loading }: { label: string; value: number; detail?: React.ReactNode; icon?: React.ReactNode; color: string; loading: boolean }) {
+  return <article className={`visitor-stat ${color}`}><small>{label}</small><div><strong>{loading ? <NumberSkeleton /> : <AnimatedNumber value={value} />}</strong>{!loading && detail && <span>{detail}</span>}{icon && <i>{icon}</i>}</div></article>;
 }
 
 function Reminder({ title, detail, urgent }: { title: string; detail: string; urgent?: boolean }) {

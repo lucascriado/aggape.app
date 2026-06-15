@@ -1,89 +1,64 @@
-import Image from "next/image";
-import {
-  ChevronLeft,
-  ChevronRight,
-  CircleDollarSign,
-  Clock,
-  Droplet,
-  MapPin,
-  Network,
-  PartyPopper,
-  Send,
-  UserPlus,
-  Users,
-} from "lucide-react";
+"use client";
+
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { CalendarDays, MapPin, Network, PartyPopper, Settings, UserPlus, Users } from "lucide-react";
 import { Calendar } from "@/components/calendar";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { AnimatedNumber } from "@/components/animated-number";
+import { toast } from "sonner";
+import { ActivitySkeleton, NumberSkeleton, Skeleton } from "@/components/skeleton";
 
-const stats = [
-  { label: "Total de membros", value: 1250, icon: Users, color: "purple" },
-  { label: "Visitantes no mês", value: 42, icon: UserPlus, color: "blue" },
-  { label: "Células ativas", value: 15, icon: Network, color: "green" },
-];
+type DashboardData = {
+  stats: { totalMembers: number; visitorsThisMonth: number; activeCells: number };
+  activities: Array<{ id: string; category: string; actor: string; action: string; subject: string; occurredAt: string }>;
+  birthdays: Array<{ id: string; name: string; birthDate: string }>;
+  events: Array<{ id: string; title: string; location: string; startsAt: string; color: string }>;
+};
 
-const activities = [
-  { title: "Novo membro cadastrado", detail: "Ana Clara Oliveira • Hoje, 10:45", icon: UserPlus, color: "purple" },
-  { title: "Batismo realizado", detail: "5 novos batizados • Ontem, 19:00", icon: Droplet, color: "green" },
-  { title: "Doação registrada", detail: "Dízimo Ministerial • 15/05/2024", icon: CircleDollarSign, color: "blue" },
-  { title: "Novo membro cadastrado", detail: "Lucas Henrique Santos • 14/05/2024", icon: UserPlus, color: "purple" },
-];
+const emptyData: DashboardData = { stats: { totalMembers: 0, visitorsThisMonth: 0, activeCells: 0 }, activities: [], birthdays: [], events: [] };
 
 export default function Dashboard() {
+  const [data, setData] = useState(emptyData);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/dashboard", { cache: "no-store" })
+      .then((response) => response.ok ? response.json() : Promise.reject())
+      .then(setData)
+      .catch(() => toast.error("Não foi possível carregar a dashboard"))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const stats = [
+    { label: "Membros ativos", value: data.stats.totalMembers, icon: Users, color: "purple" },
+    { label: "Visitantes no mês", value: data.stats.visitorsThisMonth, icon: UserPlus, color: "blue" },
+    { label: "Células ativas", value: data.stats.activeCells, icon: Network, color: "green" },
+  ];
+
   return (
     <DashboardShell title="Dashboard">
       <main>
         <section className="stats" aria-label="Indicadores">
-          {stats.map(({ label, value, icon: Icon, color }) => (
-            <article className="stat-card" key={label}>
-              <span className={`stat-icon ${color}`}><Icon /></span>
-              <span className="eyebrow">{label}</span>
-              <strong><AnimatedNumber value={value} /></strong>
-            </article>
-          ))}
+          {stats.map(({ label, value, icon: Icon, color }) => <article className="stat-card" key={label}><span className={`stat-icon ${color}`}><Icon /></span><span className="eyebrow">{label}</span><strong>{loading ? <NumberSkeleton /> : <AnimatedNumber value={value} />}</strong></article>)}
         </section>
 
         <section className="dashboard-grid">
-          <article className="panel calendar-panel">
-            <div className="panel-header">
-              <div className="calendar-title">
-                <h2>Maio 2024</h2>
-                <button aria-label="Mês anterior"><ChevronLeft /></button>
-                <button aria-label="Próximo mês"><ChevronRight /></button>
-              </div>
-              <button className="today">Hoje</button>
-            </div>
-            <Calendar />
-          </article>
-
+          <article className="panel calendar-panel"><Calendar events={data.events} /></article>
           <article className="panel activities">
-            <h2>Atividades Recentes</h2>
+            <div className="panel-header"><h2>Atividades Recentes</h2><Link className="text-button" href="/atividades">Ver histórico</Link></div>
             <div className="activity-list">
-              {activities.map(({ title, detail, icon: Icon, color }) => (
-                <div className="activity" key={`${title}-${detail}`}>
-                  <span className={`activity-icon ${color}`}><Icon /></span>
-                  <span><strong>{title}</strong><small>{detail}</small></span>
-                </div>
-              ))}
-            </div>
-            <button className="text-button">Ver todo histórico</button>
-          </article>
-
-          <article className="panel events">
-            <div className="panel-header">
-              <h2>Próximos Eventos</h2>
-              <button className="text-button">Ver agenda completa</button>
-            </div>
-            <div className="event-list">
-              <Event date="22" title="Culto de Celebração" time="20:00" place="Templo Principal" color="purple" />
-              <Event date="25" title="Reunião de Liderança" time="19:30" place="Sala 04" color="green" />
+              {loading && <ActivitySkeleton count={5} />}
+              {!loading && data.activities.map((activity) => <div className="activity" key={activity.id}><span className={`activity-icon ${activity.category === "visitors" ? "blue" : activity.category === "calendar" ? "green" : "purple"}`}>{activity.category === "calendar" ? <CalendarDays /> : activity.category === "system" ? <Settings /> : activity.category === "visitors" ? <UserPlus /> : <Users />}</span><span><strong>{activity.actor} {activity.action}{activity.subject ? ` ${activity.subject}` : ""}</strong><small>{formatDate(activity.occurredAt)}</small></span></div>)}
+              {!loading && !data.activities.length && <p className="data-empty">Nenhuma atividade registrada.</p>}
             </div>
           </article>
-
+          <article className="panel events"><div className="panel-header"><h2>Próximos Eventos</h2></div>{loading && <EventSkeleton />}{!loading && <div className="event-list">{data.events.slice(0, 4).map((event) => <div className={`event ${event.color}-border`} key={event.id}><div className="date"><strong>{new Date(event.startsAt).getDate()}</strong><small>{new Intl.DateTimeFormat("pt-BR", { month: "short" }).format(new Date(event.startsAt)).replace(".", "")}</small></div><div><strong>{event.title}</strong><small><MapPin /> {event.location}</small></div></div>)}</div>}{!loading && !data.events.length && <p className="data-empty">Nenhum evento cadastrado.</p>}</article>
           <article className="panel birthdays">
-            <h2>Aniversariantes</h2>
-            <Birthday image="/marta.png" name="Marta Guimarães" detail="Hoje • 34 anos" action="Parabenizar Marta" icon={<PartyPopper />} />
-            <Birthday image="/bruna.png" name="Bruna de Almeida" detail="20/05 • 68 anos" action="Enviar mensagem para Bruna" icon={<Send />} />
+            <h2>Aniversariantes do mês</h2>
+            {loading && Array.from({ length: 4 }, (_, index) => <div className="birthday birthday-skeleton" key={index}><Skeleton className="skeleton-circle" /><span className="birthday-skeleton-lines"><Skeleton className="skeleton-title" /><Skeleton className="skeleton-text" /></span></div>)}
+            {!loading && data.birthdays.map((person, index) => <div className="birthday" key={person.id}><span className={`birthday-avatar avatar-${index % 4}`}>{initialsFrom(person.name)}</span><span><strong>{person.name}</strong><small>{birthdayDate(person.birthDate)}</small></span><button aria-label={`Parabenizar ${person.name}`}><PartyPopper /></button></div>)}
+            {!loading && !data.birthdays.length && <p className="data-empty">Nenhum aniversário registrado neste mês.</p>}
           </article>
         </section>
       </main>
@@ -91,21 +66,18 @@ export default function Dashboard() {
   );
 }
 
-function Event({ date, title, time, place, color }: { date: string; title: string; time: string; place: string; color: "purple" | "green" }) {
-  return (
-    <div className={`event ${color}-border`}>
-      <div className="date"><strong>{date}</strong><small>Mai</small></div>
-      <div><strong>{title}</strong><small><Clock /> {time} <MapPin /> {place}</small></div>
-    </div>
-  );
+function initialsFrom(name: string) {
+  return name.trim().split(/\s+/).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("");
 }
 
-function Birthday({ image, name, detail, action, icon }: { image: string; name: string; detail: string; action: string; icon: React.ReactNode }) {
-  return (
-    <div className="birthday">
-      <Image src={image} alt={name} width={48} height={48} />
-      <span><strong>{name}</strong><small>{detail}</small></span>
-      <button aria-label={action}>{icon}</button>
-    </div>
-  );
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date(value));
+}
+
+function birthdayDate(value: string) {
+  return new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", timeZone: "UTC" }).format(new Date(value));
+}
+
+function EventSkeleton() {
+  return <div className="event-skeleton-list">{Array.from({ length: 4 }, (_, index) => <div className="event-skeleton" key={index}><Skeleton className="event-skeleton-date" /><span><Skeleton className="skeleton-title" /><Skeleton className="skeleton-text" /></span></div>)}</div>;
 }

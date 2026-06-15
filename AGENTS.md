@@ -2,86 +2,126 @@
 
 ## Visao geral
 
-- Aplicacao Next.js com App Router, React, TypeScript e CSS global.
-- Nao adicionar Tailwind ou bibliotecas de UI sem necessidade clara.
-- Reutilizar os componentes e tokens existentes antes de criar novos.
-- Manter textos e interfaces em portugues do Brasil.
+- Aplicacao Next.js 16 com App Router, React 19, TypeScript e CSS global.
+- Backend em Route Handlers Node dentro de `app/api`.
+- PostgreSQL acessado por Sequelize v6, com SQL explicito nas consultas.
+- Reutilize componentes e tokens existentes antes de criar novos.
+- Nao adicione Tailwind ou bibliotecas de UI sem necessidade clara.
+- Mantenha textos e interfaces em portugues do Brasil.
 
-## Comandos de validacao
+## Validacao
 
 Execute antes de finalizar alteracoes:
 
 ```bash
 npm run typecheck
 npm run build
+git diff --check
 ```
 
 ## Arquitetura
 
-- Rotas ficam em `app/<rota>/page.tsx`.
+- Paginas ficam em `app/<rota>/page.tsx`.
+- APIs ficam em `app/api/<recurso>/route.ts`.
 - Componentes compartilhados ficam em `components/`.
+- Utilitarios e camada de dados ficam em `lib/`.
 - Estilos globais e tokens ficam em `app/globals.css`.
-- Use `DashboardShell` em novas paginas administrativas para reutilizar:
-  - Sidebar
-  - Header
-  - Busca
-  - Comportamento mobile
-  - Persistencia do estado recolhido da sidebar
-- Use `AnimatedNumber` para indicadores numericos que devem animar ao carregar.
+- Use `DashboardShell` nas paginas administrativas.
+- Use `AnimatedNumber` para indicadores carregados.
+- Use os skeletons de `components/skeleton.tsx` durante consultas ao servidor.
+- Nunca exiba `0` temporario enquanto um indicador ainda esta carregando.
+
+## Backend e Sequelize
+
+- A instancia compartilhada do Sequelize fica em `lib/db.ts`.
+- Use os Models de `lib/models.ts` no CRUD.
+- Use `db.transaction(callback)` para operacoes com multiplas escritas.
+- Use `query<T>(sql, values)` somente em views, agregacoes e relatorios.
+- Registre alteracoes relevantes com `addActivity` de `lib/activities.ts`.
+- Continue usando parametros `$1`, `$2`, etc.; a camada usa `bind` do Sequelize.
+- Nao crie uma nova conexao Sequelize dentro de rotas ou componentes.
+- Nao use `sequelize.sync()`, `sync({ alter: true })` ou `sync({ force: true })`.
+- Nao deixe logging SQL habilitado por padrao.
+- Consultas agregadas, views e relatorios devem permanecer em SQL explicito
+  quando isso for mais claro que Models e associacoes.
+- Sequelize gerencia conexao, pool e transacoes. As migrations SQL continuam
+  sendo a fonte de verdade do schema.
+
+## Banco e migrations
+
+- A variavel obrigatoria e `DATABASE_URL`; nunca versione credenciais reais.
+- Migrations ficam em `database/migrations/` e devem ser executadas em ordem.
+- Use `database/migrate.ps1`; ele registra arquivos em `schema_migrations`.
+- `people` concentra dados pessoais compartilhados.
+- `members` e `visitors` referenciam `people` por `person_id`.
+- `activities` alimenta a Dashboard e a tela de historico.
+- `events` alimenta calendario e proximos eventos.
+- As views `member_directory` e `visitor_directory` alimentam as listagens.
+- Para mudar o schema, crie uma nova migration. Nao altere migrations aplicadas.
+- Em desenvolvimento, prefira tunel SSH em vez de expor PostgreSQL a internet.
 
 ## Navegacao
 
-- Ao criar uma pagina acessivel pelo menu, adicione uma rota real no array
-  `primaryLinks` de `components/sidebar.tsx`.
+- Adicione novas rotas de menu em `primaryLinks` de `components/sidebar.tsx`.
 - O item ativo deve ser determinado pelo pathname.
 - A sidebar deve permanecer recolhida ao navegar entre paginas.
 - No mobile, a sidebar deve fechar ao clicar fora.
 
 ## Design e estilos
 
-- Preservar os tokens existentes em `:root`, especialmente cores, bordas e easing.
-- Usar a fonte Fustat herdada pelo projeto em inputs, selects e botoes.
-- Manter os padroes atuais:
-  - Fundo: `--bg`
-  - Paineis: borda `--border`, fundo branco e raio de `12px`
-  - Titulos: `--heading`
-  - Acoes primarias: fundo `--heading`
+- Preserve os tokens em `:root`, especialmente cores, bordas e easing.
+- Inputs, selects, textareas e botoes devem herdar a fonte Fustat.
+- Selects devem usar a seta customizada com recuo de `16px`.
+- Paineis usam borda `--border`, fundo branco e raio de `12px`.
+- Titulos e acoes primarias usam `--heading`.
 - Hovers e animacoes devem ser sutis e respeitar `prefers-reduced-motion`.
-- Paginas administrativas devem iniciar com os mesmos paddings e cabecalhos.
+- Use Sonner para feedback de sucesso, erro e informacao.
+- Em salvar, alterar e excluir, mostre spinner, texto de loading e bloqueie
+  cliques duplicados ate a resposta do servidor.
 
 ## Responsividade
 
 - Desktop: sidebar fixa e recolhivel.
 - Tablet: componentes podem quebrar em multiplas linhas.
 - Mobile: tabelas devem virar cartoes legiveis quando necessario.
-- Evitar layouts que dependam de largura dinamica do conteudo.
-- Tabelas devem usar `table-layout: fixed`, `colgroup` e larguras explicitas.
+- Evite layouts que dependam da largura dinamica do conteudo.
+- Tabelas usam `table-layout: fixed`, `colgroup` e larguras explicitas.
 - Textos longos em colunas fixas devem usar ellipsis.
 
-## Listas, filtros e dados mockados
+## Listas, filtros e dados
 
-- Filtros devem funcionar de verdade e recalcular a paginacao.
-- Busca deve considerar nome, email e outros campos relevantes.
+- Dados exibidos devem vir das APIs e do PostgreSQL, nao de mocks.
+- Filtros devem funcionar e recalcular a paginacao.
 - Alterar filtros deve retornar para a primeira pagina.
-- Incluir estado vazio quando nenhum registro for encontrado.
-- Usar chaves React unicas e estaveis, nunca titulos duplicaveis isoladamente.
-- Dados mockados devem ser suficientes para testar filtros e varias paginas.
+- Inclua estado vazio quando nenhum registro for encontrado.
+- Use chaves React unicas e estaveis.
+- Paginacoes mostram no maximo tres numeros visiveis e mantem setas.
 
 ## Componentes compartilhados
 
-- Reutilizar estilos e componentes de filtros, paginacao, tags e acoes.
-- Acoes padrao de registros:
-  - Visualizar
-  - Editar
-  - Excluir
-- Manter `aria-label` descritivo em botoes apenas com icone.
-- Evitar duplicar logica entre paginas; extrair componente quando o mesmo
-  comportamento aparecer em mais de uma rota.
+- Reutilize estilos e componentes de filtros, paginacao, tags e acoes.
+- Acoes padrao de registros: visualizar, editar e excluir.
+- Mantenha `aria-label` descritivo em botoes apenas com icone.
+- Formularios de membros e visitantes usam `PersonRecordDialog`.
+- Normalize opcionais do banco para string vazia antes de alimentar inputs.
+- Sem foto, exiba as duas primeiras iniciais da pessoa.
+- CPF, telefone e CEP possuem mascara. CEP completo consulta ViaCEP e preenche
+  logradouro, bairro, cidade e estado.
+
+## Funcionalidades existentes
+
+- Dashboard conectada ao banco com indicadores, calendario, atividades,
+  proximos eventos e aniversariantes.
+- Gestao de membros com busca, filtros, paginacao, celulas e CRUD.
+- Gestao de visitantes com busca, filtros, abas, paginacao e CRUD.
+- Historico de atividades com busca, periodo, categorias e paginacao.
+- Sidebar responsiva, recolhivel e persistente entre navegacoes.
+- Sonner para notificacoes e skeletons para carregamento remoto.
 
 ## Implementacao a partir do Figma
 
-- Adaptar o design ao stack e aos componentes existentes.
-- Nao copiar Tailwind gerado pelo Figma.
-- Priorizar consistencia com as paginas existentes sobre valores isolados do frame.
-- Implementar interacoes esperadas, como filtros, busca, abas e paginacao.
-- Validar responsividade alem da dimensao desktop apresentada no Figma.
+- Adapte o design ao stack e aos componentes existentes.
+- Nao copie Tailwind gerado pelo Figma.
+- Priorize consistencia com as paginas existentes.
+- Implemente filtros, busca, abas e paginacao quando fizerem parte do fluxo.
+- Valide responsividade alem da dimensao desktop apresentada no Figma.
