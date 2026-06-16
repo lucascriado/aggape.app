@@ -1,9 +1,10 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { CalendarDays, ChevronLeft, ChevronRight, Clock, MapPin, Plus, X } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, Clock, MapPin, Plus, Trash2, X } from "lucide-react";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { toast } from "sonner";
+import { DeleteRecordDialog } from "@/components/person-record-dialog";
 
 type CalendarEvent = {
   id: string;
@@ -43,6 +44,7 @@ export default function CalendarPage() {
   const [monthTransition, setMonthTransition] = useState<"next" | "previous" | "today">("today");
   const [calendarView, setCalendarView] = useState<CalendarView>("month");
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<CalendarEvent | null>(null);
   const [creating, setCreating] = useState(false);
   const [enabledColors, setEnabledColors] = useState<Record<CalendarEvent["color"], boolean>>({ purple: true, green: true, blue: true });
 
@@ -128,6 +130,20 @@ export default function CalendarPage() {
 
     toast.success("Evento criado com sucesso");
     setCreating(false);
+    await loadEvents();
+    return true;
+  }
+
+  async function confirmDeleteEvent() {
+    if (!deleteTarget) return false;
+    const response = await fetch(`/api/events?id=${deleteTarget.id}`, { method: "DELETE" });
+    if (!response.ok) {
+      toast.error("Não foi possível excluir o evento");
+      return false;
+    }
+    toast.success("Evento excluído");
+    setDeleteTarget(null);
+    closeEvent();
     await loadEvents();
     return true;
   }
@@ -226,8 +242,9 @@ export default function CalendarPage() {
           </aside>
         </section>
       </main>
-      {selectedEvent && <EventDetailsModal event={selectedEvent} onClose={closeEvent} />}
+      {selectedEvent && <EventDetailsModal event={selectedEvent} onClose={closeEvent} onDelete={() => setDeleteTarget(selectedEvent)} />}
       {creating && <EventFormModal onClose={() => setCreating(false)} onSubmit={createEvent} />}
+      <DeleteRecordDialog open={deleteTarget !== null} name={deleteTarget?.title ?? ""} kind="event" onClose={() => setDeleteTarget(null)} onConfirm={confirmDeleteEvent} />
     </DashboardShell>
   );
 }
@@ -242,7 +259,7 @@ function EventPreview({ event, onClick }: { event: CalendarEvent; onClick: () =>
   );
 }
 
-function EventDetailsModal({ event, onClose }: { event: CalendarEvent; onClose: () => void }) {
+function EventDetailsModal({ event, onClose, onDelete }: { event: CalendarEvent; onClose: () => void; onDelete: () => void }) {
   return (
     <div className="event-modal-layer" role="dialog" aria-modal="true" aria-label={`Evento ${event.title}`}>
       <section className="event-modal">
@@ -256,6 +273,7 @@ function EventDetailsModal({ event, onClose }: { event: CalendarEvent; onClose: 
           <p><Clock />{timeLabel(event.startsAt)}{event.endsAt ? ` - ${timeLabel(event.endsAt)}` : ""}</p>
           {event.description && <article>{event.description}</article>}
         </div>
+        <footer className="event-form-actions"><button className="event-delete-button" onClick={onDelete}><Trash2 />Excluir Evento</button></footer>
       </section>
     </div>
   );

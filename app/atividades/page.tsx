@@ -9,6 +9,7 @@ import { visiblePageNumbers } from "@/lib/pagination";
 
 type Activity = { id: string; category: "members" | "visitors" | "calendar" | "system"; actor: string; action: string; subject?: string; details?: string; occurredAt: string };
 const categories = [{ value: "all", label: "Todos" }, { value: "members", label: "Membros" }, { value: "visitors", label: "Visitantes" }, { value: "calendar", label: "Calendário" }, { value: "system", label: "Sistema" }];
+const pageSize = 6;
 
 export default function ActivitiesPage() {
   const [records, setRecords] = useState<Activity[]>([]);
@@ -20,12 +21,12 @@ export default function ActivitiesPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const params = new URLSearchParams({ page: String(page), date, category, search });
+    const params = new URLSearchParams({ page: String(page), limit: String(pageSize), date, category, search });
     setLoading(true);
     fetch(`/api/activities?${params}`, { cache: "no-store" }).then((response) => response.ok ? response.json() : Promise.reject()).then((data) => { setRecords(data.records); setTotal(data.total); }).catch(() => toast.error("Não foi possível carregar as atividades")).finally(() => setLoading(false));
   }, [category, date, page, search]);
 
-  const pageCount = Math.max(1, Math.ceil(total / 10));
+  const pageCount = Math.max(1, Math.ceil(total / pageSize));
   return (
     <DashboardShell title="Atividades">
       <main className="activities-main">
@@ -37,11 +38,11 @@ export default function ActivitiesPage() {
         </section>
         <section className="activity-timeline-card">
           <div className="activity-timeline">
-            {loading && <ActivitySkeleton count={8} />}
+            {loading && <ActivitySkeleton count={pageSize} />}
             {!loading && records.map((activity, index) => <ActivityItem activity={activity} key={activity.id} showLine={index < records.length - 1} />)}
             {!loading && !records.length && <p className="data-empty">Nenhuma atividade encontrada.</p>}
           </div>
-          <footer className="activity-pagination"><span>Mostrando {records.length ? (page - 1) * 10 + 1 : 0}-{Math.min(page * 10, total)} de {total} atividades</span><div><button disabled={page === 1} onClick={() => setPage(page - 1)}><ChevronLeft /></button>{visiblePageNumbers(page, pageCount).map((number) => <button className={number === page ? "current" : undefined} key={number} onClick={() => setPage(number)}>{number}</button>)}<button disabled={page === pageCount} onClick={() => setPage(page + 1)}><ChevronRight /></button></div></footer>
+          <footer className="activity-pagination"><span>Mostrando {records.length ? (page - 1) * pageSize + 1 : 0}-{Math.min(page * pageSize, total)} de {total} atividades</span><div><button disabled={page === 1} onClick={() => setPage(page - 1)}><ChevronLeft /></button>{visiblePageNumbers(page, pageCount).map((number) => <button className={number === page ? "current" : undefined} key={number} onClick={() => setPage(number)}>{number}</button>)}<button disabled={page === pageCount} onClick={() => setPage(page + 1)}><ChevronRight /></button></div></footer>
         </section>
       </main>
     </DashboardShell>

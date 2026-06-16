@@ -10,7 +10,7 @@ export async function GET(request: Request) {
     const date = searchParams.get("date");
     const search = searchParams.get("search")?.trim();
     const page = Math.max(1, Number(searchParams.get("page")) || 1);
-    const limit = 10;
+    const limit = Math.min(10, Math.max(1, Number(searchParams.get("limit")) || 10));
     const values: unknown[] = [];
     const filters: string[] = [];
     if (category && category !== "all") { values.push(category); filters.push(`category = $${values.length}`); }

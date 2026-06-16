@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { addActivity } from "@/lib/activities";
 import { apiError } from "@/lib/records";
+import { QueryTypes } from "sequelize";
 
 export const runtime = "nodejs";
 
@@ -38,6 +39,23 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       await addActivity(transaction, "members", "atualizou o ministério", name);
     });
 
+    return Response.json({ ok: true });
+  } catch (error) {
+    return apiError(error);
+  }
+}
+
+export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const { id } = await params;
+    await db.transaction(async (transaction) => {
+      const rows = await db.query<{ name: string }>(`SELECT name FROM ministries WHERE id = $1`, { bind: [id], transaction, type: QueryTypes.SELECT });
+      const ministry = rows[0];
+      if (!ministry) return;
+      await db.query(`UPDATE members SET ministry_id = NULL WHERE ministry_id = $1`, { bind: [id], transaction });
+      await db.query(`DELETE FROM ministries WHERE id = $1`, { bind: [id], transaction });
+      await addActivity(transaction, "members", "excluiu o ministério", ministry.name);
+    });
     return Response.json({ ok: true });
   } catch (error) {
     return apiError(error);

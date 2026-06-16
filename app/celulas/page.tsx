@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { CalendarClock, ChevronRight, Clock, Edit3, LoaderCircle, MapPin, Network, Plus, Search, Trash2, Users, X } from "lucide-react";
 import { toast } from "sonner";
 import { DashboardShell } from "@/components/dashboard-shell";
-import { NumberSkeleton } from "@/components/skeleton";
+import { NumberSkeleton, Skeleton } from "@/components/skeleton";
 import { AnimatedNumber } from "@/components/animated-number";
 import { DeleteRecordDialog } from "@/components/person-record-dialog";
 
@@ -50,6 +50,8 @@ export default function CellsPage() {
   const [members, setMembers] = useState<MemberOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [meetingDay, setMeetingDay] = useState("all");
+  const [leader, setLeader] = useState("all");
   const [mode, setMode] = useState<"create" | "edit" | "view" | null>(null);
   const [selectedCell, setSelectedCell] = useState<Cell | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Cell | null>(null);
@@ -74,13 +76,26 @@ export default function CellsPage() {
 
   useEffect(() => { void loadData(); }, []);
 
+  const leaders = useMemo(() => [...new Set(cells.map((cell) => cell.leaderName).filter(Boolean))] as string[], [cells]);
+  const meetingDays = useMemo(() => [...new Set(cells.map((cell) => cell.meetingDay).filter(Boolean))], [cells]);
   const filteredCells = useMemo(() => {
     const term = search.trim().toLocaleLowerCase("pt-BR");
-    return cells.filter((cell) => !term || `${cell.name} ${cell.address ?? ""} ${cell.leaderName ?? ""}`.toLocaleLowerCase("pt-BR").includes(term));
-  }, [cells, search]);
+    return cells.filter((cell) => {
+      const matchesSearch = !term || `${cell.name} ${cell.address ?? ""} ${cell.leaderName ?? ""}`.toLocaleLowerCase("pt-BR").includes(term);
+      return matchesSearch
+        && (meetingDay === "all" || cell.meetingDay === meetingDay)
+        && (leader === "all" || cell.leaderName === leader);
+    });
+  }, [cells, leader, meetingDay, search]);
 
   const assignedMembers = useMemo(() => cells.reduce((total, cell) => total + cell.memberCount, 0), [cells]);
   const average = cells.length ? Math.round(assignedMembers / cells.length) : 0;
+
+  function clearFilters() {
+    setSearch("");
+    setMeetingDay("all");
+    setLeader("all");
+  }
 
   async function saveCell(values: CellFormValues) {
     const editing = mode === "edit" && selectedCell;
@@ -137,10 +152,28 @@ export default function CellsPage() {
           <CellForm mode={mode} cell={selectedCell} members={members} onClose={closeForm} onSubmit={saveCell} />
         ) : (
           <>
-            <label className="resource-search"><Search /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar células..." /></label>
+            <section className="resource-stats cells-summary">
+              <article><span><Network /></span><small>Total de células</small><strong>{loading ? <NumberSkeleton /> : <AnimatedNumber value={cells.length} />}</strong></article>
+              <article><span><Users /></span><small>Membros vinculados</small><strong>{loading ? <NumberSkeleton /> : <AnimatedNumber value={assignedMembers} />}</strong></article>
+              <article><span><CalendarClock /></span><small>Média por célula</small><strong>{loading ? <NumberSkeleton /> : <AnimatedNumber value={average} />}</strong></article>
+              <article><span><MapPin /></span><small>Com endereço</small><strong>{loading ? <NumberSkeleton /> : <AnimatedNumber value={cells.filter((cell) => cell.address).length} />}</strong></article>
+            </section>
+
+            <div className="member-filters resource-filters">
+              <select aria-label="Filtrar por dia" value={meetingDay} onChange={(event) => setMeetingDay(event.target.value)}>
+                <option value="all">Dia: Todos</option>
+                {meetingDays.map((day) => <option key={day}>{day}</option>)}
+              </select>
+              <select aria-label="Filtrar por líder" value={leader} onChange={(event) => setLeader(event.target.value)}>
+                <option value="all">Líder: Todos</option>
+                {leaders.map((item) => <option key={item}>{item}</option>)}
+              </select>
+              <label className="member-filter-search"><Search /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Filtrar célula..." /></label>
+              <button className="clear-filters" onClick={clearFilters}>Limpar Filtros</button>
+            </div>
 
             <section className="cell-grid">
-              {loading && Array.from({ length: 4 }).map((_, index) => <article className="resource-card loading-card" key={index}><NumberSkeleton /></article>)}
+              {loading && Array.from({ length: 4 }).map((_, index) => <ResourceCardSkeleton key={index} />)}
               {!loading && filteredCells.map((cell, index) => (
                 <article className={`resource-card cell-card tone-${cell.color}`} key={cell.id}>
                   <header>
@@ -152,27 +185,15 @@ export default function CellsPage() {
                   <p><Clock />{cell.meetingDay}, {cell.meetingTime}</p>
                   <div className="avatar-row">{cell.members.slice(0, 3).map((member) => <span key={member.id}>{initials(member.name)}</span>)}{cell.memberCount > 3 && <span>+{cell.memberCount - 3}</span>}</div>
                   <footer>
-                    <button onClick={() => openForm("view", cell)}>Ver detalhes <ChevronRight /></button>
+                    <button onClick={() => openForm("view", cell)}>Visualizar <ChevronRight /></button>
                     <button aria-label={`Editar ${cell.name}`} onClick={() => openForm("edit", cell)}><Edit3 /></button>
                     <button aria-label={`Excluir ${cell.name}`} onClick={() => setDeleteTarget(cell)}><Trash2 /></button>
                   </footer>
                 </article>
               ))}
-              {!loading && (
-                <button className="resource-card add-resource-card" onClick={() => openForm("create")}>
-                  <span><Plus /></span>
-                  <strong>Nova Célula</strong>
-                  <small>Expandir o ministério</small>
-                </button>
-              )}
               {!loading && !filteredCells.length && <p className="data-empty">Nenhuma célula encontrada.</p>}
             </section>
 
-            <section className="resource-stats">
-              <article><span><Network /></span><small>Total de células</small><strong>{loading ? <NumberSkeleton /> : <AnimatedNumber value={cells.length} />}</strong></article>
-              <article><span><Users /></span><small>Membros vinculados</small><strong>{loading ? <NumberSkeleton /> : <AnimatedNumber value={assignedMembers} />}</strong></article>
-              <article><span><CalendarClock /></span><small>Média por célula</small><strong>{loading ? <NumberSkeleton /> : <AnimatedNumber value={average} />}</strong></article>
-            </section>
           </>
         )}
       </main>
@@ -183,11 +204,17 @@ export default function CellsPage() {
 
 function CellForm({ mode, cell, members, onClose, onSubmit }: { mode: "create" | "edit" | "view"; cell: Cell | null; members: MemberOption[]; onClose: () => void; onSubmit: (values: CellFormValues) => Promise<boolean> }) {
   const [values, setValues] = useState<CellFormValues>(emptyCell);
+  const [memberSearch, setMemberSearch] = useState("");
   const [saving, setSaving] = useState(false);
   const readOnly = mode === "view";
+  const filteredMembers = useMemo(() => {
+    const term = memberSearch.trim().toLocaleLowerCase("pt-BR");
+    return members.filter((member) => !term || `${member.name} ${member.email}`.toLocaleLowerCase("pt-BR").includes(term));
+  }, [memberSearch, members]);
 
   useEffect(() => {
     setSaving(false);
+    setMemberSearch("");
     setValues(cell ? {
       name: cell.name,
       address: cell.address ?? "",
@@ -240,11 +267,25 @@ function CellForm({ mode, cell, members, onClose, onSubmit }: { mode: "create" |
         <label className="wide form-section-field"><span>Observações</span><textarea value={values.notes} onChange={(event) => update("notes", event.target.value)} /></label>
         <div className="member-picker wide">
           <span>Membros da célula</span>
-          <div>{members.map((member) => <label key={member.id}><input type="checkbox" checked={values.memberIds.includes(member.id)} onChange={() => toggleMember(member.id)} /> <strong>{member.name}</strong><small>{member.email}</small></label>)}</div>
+          <input className="member-picker-search" value={memberSearch} onChange={(event) => setMemberSearch(event.target.value)} placeholder="Pesquisar membros..." />
+          <div>{filteredMembers.map((member) => <label key={member.id}><input type="checkbox" checked={values.memberIds.includes(member.id)} onChange={() => toggleMember(member.id)} /> <strong>{member.name}</strong><small>{member.email}</small></label>)}</div>
+          {!filteredMembers.length && <small className="member-picker-empty">Nenhum membro encontrado.</small>}
         </div>
       </fieldset>
       {!readOnly && <footer><button type="button" onClick={onClose} disabled={saving}>Cancelar</button><button className="primary-action" disabled={saving}>{saving ? <LoaderCircle className="button-spinner" /> : <Plus />}{saving ? "Salvando..." : "Salvar Célula"}</button></footer>}
     </form>
+  );
+}
+
+function ResourceCardSkeleton() {
+  return (
+    <article className="resource-card resource-loading-card">
+      <div className="resource-loading-top"><Skeleton className="resource-loading-icon" /><Skeleton className="resource-loading-pill" /></div>
+      <Skeleton className="resource-loading-title" />
+      <Skeleton className="resource-loading-text" />
+      <Skeleton className="resource-loading-text short" />
+      <div className="resource-loading-actions"><Skeleton /><Skeleton /><Skeleton /></div>
+    </article>
   );
 }
 

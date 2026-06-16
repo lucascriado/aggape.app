@@ -76,6 +76,26 @@ export async function POST(request: Request) {
   }
 }
 
+export async function DELETE(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get("id");
+    if (!id) return Response.json({ error: "Evento não informado." }, { status: 400 });
+
+    await db.transaction(async (transaction) => {
+      const [rows] = await db.query(`SELECT title, location FROM events WHERE id = $1`, { bind: [id], transaction });
+      const event = (rows as Array<{ title: string; location: string }>)[0];
+      if (!event) return;
+      await db.query(`DELETE FROM events WHERE id = $1`, { bind: [id], transaction });
+      await addActivity(transaction, "calendar", "excluiu o evento", event.title, event.location);
+    });
+
+    return Response.json({ ok: true });
+  } catch (error) {
+    return apiError(error);
+  }
+}
+
 function normalizeColor(color?: string) {
   if (color === "green" || color === "blue" || color === "purple") return color;
   return "purple";

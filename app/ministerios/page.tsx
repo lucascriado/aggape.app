@@ -1,11 +1,12 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { Baby, BookOpenCheck, CalendarCheck, Edit3, HeartHandshake, LoaderCircle, Music, Plus, Search, ShieldCheck, Users, Video, X } from "lucide-react";
+import { Baby, BookOpenCheck, CalendarCheck, Edit3, HeartHandshake, LoaderCircle, Music, Plus, Search, ShieldCheck, Trash2, Users, Video, X } from "lucide-react";
 import { toast } from "sonner";
 import { DashboardShell } from "@/components/dashboard-shell";
-import { NumberSkeleton } from "@/components/skeleton";
+import { NumberSkeleton, Skeleton } from "@/components/skeleton";
 import { AnimatedNumber } from "@/components/animated-number";
+import { DeleteRecordDialog } from "@/components/person-record-dialog";
 
 type MemberOption = { id: string; name: string; email: string; ministry?: string };
 type Ministry = {
@@ -21,8 +22,10 @@ type Ministry = {
 type Summary = { totalVolunteers: number; activeMinistries: number };
 type MinistryFormValues = { name: string; description: string; color: "blue" | "green" | "gray" | "purple"; leaderId: string; memberIds: string[] };
 type AttendanceMember = { id: string; name: string; email: string; present: boolean; notes: string | null };
+type AttendanceHistory = { id: string; date: string; title: string | null; recordCount: number; presentCount: number; absentCount: number };
 
 const emptyMinistry: MinistryFormValues = { name: "", description: "", color: "purple", leaderId: "", memberIds: [] };
+const colorLabels: Record<Ministry["color"], string> = { blue: "Azul", green: "Verde", gray: "Cinza", purple: "Roxo" };
 
 export default function MinistriesPage() {
   const [ministries, setMinistries] = useState<Ministry[]>([]);
@@ -30,9 +33,12 @@ export default function MinistriesPage() {
   const [members, setMembers] = useState<MemberOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [leader, setLeader] = useState("all");
+  const [color, setColor] = useState("all");
   const [mode, setMode] = useState<"create" | "edit" | "view" | null>(null);
   const [selectedMinistry, setSelectedMinistry] = useState<Ministry | null>(null);
   const [attendanceMinistry, setAttendanceMinistry] = useState<Ministry | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Ministry | null>(null);
 
   async function loadData() {
     setLoading(true);
@@ -56,10 +62,22 @@ export default function MinistriesPage() {
 
   useEffect(() => { void loadData(); }, []);
 
+  const leaders = useMemo(() => [...new Set(ministries.map((ministry) => ministry.leaderName).filter(Boolean))] as string[], [ministries]);
   const filteredMinistries = useMemo(() => {
     const term = search.trim().toLocaleLowerCase("pt-BR");
-    return ministries.filter((ministry) => !term || `${ministry.name} ${ministry.description ?? ""} ${ministry.leaderName ?? ""}`.toLocaleLowerCase("pt-BR").includes(term));
-  }, [ministries, search]);
+    return ministries.filter((ministry) => {
+      const matchesSearch = !term || `${ministry.name} ${ministry.description ?? ""} ${ministry.leaderName ?? ""}`.toLocaleLowerCase("pt-BR").includes(term);
+      return matchesSearch
+        && (leader === "all" || ministry.leaderName === leader)
+        && (color === "all" || ministry.color === color);
+    });
+  }, [color, leader, ministries, search]);
+
+  function clearFilters() {
+    setSearch("");
+    setLeader("all");
+    setColor("all");
+  }
 
   async function saveMinistry(values: MinistryFormValues) {
     const editing = mode === "edit" && selectedMinistry;
@@ -74,6 +92,19 @@ export default function MinistriesPage() {
     }
     toast.success(editing ? "Ministério atualizado com sucesso" : "Ministério criado com sucesso");
     closeForm();
+    await loadData();
+    return true;
+  }
+
+  async function confirmDeleteMinistry() {
+    if (!deleteTarget) return false;
+    const response = await fetch(`/api/ministries/${deleteTarget.id}`, { method: "DELETE" });
+    if (!response.ok) {
+      toast.error("Não foi possível excluir o ministério");
+      return false;
+    }
+    toast.success("Ministério excluído");
+    setDeleteTarget(null);
     await loadData();
     return true;
   }
@@ -96,12 +127,7 @@ export default function MinistriesPage() {
             <h2>Gestão de Ministérios</h2>
             <p>Organize equipes, voluntários e chamadas das escolas bíblicas.</p>
           </div>
-          {!mode && (
-            <div className="resource-heading-actions">
-              <label className="resource-search compact"><Search /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar ministério..." /></label>
-              <button className="primary-action" onClick={() => openForm("create")}><Plus />Novo Registro</button>
-            </div>
-          )}
+          {!mode && <button className="primary-action" onClick={() => openForm("create")}><Plus />Novo Ministério</button>}
         </section>
 
         {mode ? (
@@ -115,8 +141,21 @@ export default function MinistriesPage() {
               <article><span><BookOpenCheck /></span><small>Escola bíblica</small><strong>Por ministério</strong></article>
             </section>
 
+            <div className="member-filters resource-filters">
+              <select aria-label="Filtrar por líder" value={leader} onChange={(event) => setLeader(event.target.value)}>
+                <option value="all">Líder: Todos</option>
+                {leaders.map((item) => <option key={item}>{item}</option>)}
+              </select>
+              <select aria-label="Filtrar por cor" value={color} onChange={(event) => setColor(event.target.value)}>
+                <option value="all">Cor: Todas</option>
+                {(Object.keys(colorLabels) as Ministry["color"][]).map((item) => <option value={item} key={item}>{colorLabels[item]}</option>)}
+              </select>
+              <label className="member-filter-search"><Search /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Filtrar ministério..." /></label>
+              <button className="clear-filters" onClick={clearFilters}>Limpar Filtros</button>
+            </div>
+
             <section className="ministries-grid">
-              {loading && Array.from({ length: 5 }).map((_, index) => <article className="resource-card loading-card" key={index}><NumberSkeleton /></article>)}
+              {loading && Array.from({ length: 4 }).map((_, index) => <ResourceCardSkeleton key={index} />)}
               {!loading && filteredMinistries.map((ministry) => (
                 <article className={`resource-card ministry-card tone-${ministry.color}`} key={ministry.id}>
                   <header>
@@ -130,33 +169,35 @@ export default function MinistriesPage() {
                     <button onClick={() => openForm("view", ministry)}>Visualizar</button>
                     <button onClick={() => openForm("edit", ministry)}><Edit3 />Editar</button>
                     <button onClick={() => setAttendanceMinistry(ministry)}><BookOpenCheck />Chamada</button>
+                    <button aria-label={`Excluir ${ministry.name}`} onClick={() => setDeleteTarget(ministry)}><Trash2 /></button>
                   </footer>
                 </article>
               ))}
-              {!loading && (
-                <button className="resource-card add-resource-card" onClick={() => openForm("create")}>
-                  <span><Plus /></span>
-                  <strong>Adicionar Ministério</strong>
-                  <small>Crie um novo grupo ministerial para sua igreja.</small>
-                </button>
-              )}
               {!loading && !filteredMinistries.length && <p className="data-empty">Nenhum ministério encontrado.</p>}
             </section>
+
           </>
         )}
       </main>
       <AttendanceDialog ministry={attendanceMinistry} onClose={() => setAttendanceMinistry(null)} />
+      <DeleteRecordDialog open={deleteTarget !== null} name={deleteTarget?.name ?? ""} kind="ministry" onClose={() => setDeleteTarget(null)} onConfirm={confirmDeleteMinistry} />
     </DashboardShell>
   );
 }
 
 function MinistryForm({ mode, ministry, members, onClose, onSubmit }: { mode: "create" | "edit" | "view"; ministry: Ministry | null; members: MemberOption[]; onClose: () => void; onSubmit: (values: MinistryFormValues) => Promise<boolean> }) {
   const [values, setValues] = useState<MinistryFormValues>(emptyMinistry);
+  const [memberSearch, setMemberSearch] = useState("");
   const [saving, setSaving] = useState(false);
   const readOnly = mode === "view";
+  const filteredMembers = useMemo(() => {
+    const term = memberSearch.trim().toLocaleLowerCase("pt-BR");
+    return members.filter((member) => !term || `${member.name} ${member.email}`.toLocaleLowerCase("pt-BR").includes(term));
+  }, [memberSearch, members]);
 
   useEffect(() => {
     setSaving(false);
+    setMemberSearch("");
     setValues(ministry ? {
       name: ministry.name,
       description: ministry.description ?? "",
@@ -194,7 +235,9 @@ function MinistryForm({ mode, ministry, members, onClose, onSubmit }: { mode: "c
         <label className="wide form-section-field"><span>Descrição</span><textarea value={values.description} onChange={(event) => setValues((current) => ({ ...current, description: event.target.value }))} /></label>
         <div className="member-picker wide">
           <span>Membros do ministério</span>
-          <div>{members.map((member) => <label key={member.id}><input type="checkbox" checked={values.memberIds.includes(member.id)} onChange={() => toggleMember(member.id)} /> <strong>{member.name}</strong><small>{member.email}</small></label>)}</div>
+          <input className="member-picker-search" value={memberSearch} onChange={(event) => setMemberSearch(event.target.value)} placeholder="Pesquisar membros..." />
+          <div>{filteredMembers.map((member) => <label key={member.id}><input type="checkbox" checked={values.memberIds.includes(member.id)} onChange={() => toggleMember(member.id)} /> <strong>{member.name}</strong><small>{member.email}</small></label>)}</div>
+          {!filteredMembers.length && <small className="member-picker-empty">Nenhum membro encontrado.</small>}
         </div>
       </fieldset>
       {!readOnly && <footer><button type="button" onClick={onClose} disabled={saving}>Cancelar</button><button className="primary-action" disabled={saving}>{saving ? <LoaderCircle className="button-spinner" /> : <Plus />}{saving ? "Salvando..." : "Salvar Ministério"}</button></footer>}
@@ -202,15 +245,56 @@ function MinistryForm({ mode, ministry, members, onClose, onSubmit }: { mode: "c
   );
 }
 
+function ResourceCardSkeleton() {
+  return (
+    <article className="resource-card resource-loading-card">
+      <div className="resource-loading-top"><Skeleton className="resource-loading-icon" /><Skeleton className="resource-loading-pill" /></div>
+      <Skeleton className="resource-loading-title" />
+      <Skeleton className="resource-loading-text" />
+      <Skeleton className="resource-loading-text short" />
+      <div className="resource-loading-actions"><Skeleton /><Skeleton /><Skeleton /></div>
+    </article>
+  );
+}
+
 function AttendanceDialog({ ministry, onClose }: { ministry: Ministry | null; onClose: () => void }) {
   const [date, setDate] = useState(nextSunday());
   const [members, setMembers] = useState<AttendanceMember[]>([]);
+  const [history, setHistory] = useState<AttendanceHistory[]>([]);
+  const [memberSearch, setMemberSearch] = useState("");
   const [loading, setLoading] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const filteredMembers = useMemo(() => {
+    const term = memberSearch.trim().toLocaleLowerCase("pt-BR");
+    return members.filter((member) => !term || `${member.name} ${member.email}`.toLocaleLowerCase("pt-BR").includes(term));
+  }, [memberSearch, members]);
 
   useEffect(() => {
     if (!ministry) return;
     setDate(nextSunday());
+    setMemberSearch("");
+  }, [ministry]);
+
+  useEffect(() => {
+    if (!ministry) return;
+    const controller = new AbortController();
+    const ministryId = ministry.id;
+    async function loadHistory() {
+      setHistoryLoading(true);
+      try {
+        const response = await fetch(`/api/ministries/${ministryId}/attendance?history=1`, { signal: controller.signal, cache: "no-store" });
+        if (!response.ok) throw new Error("Falha ao carregar histórico");
+        const data = await response.json() as { records: AttendanceHistory[] };
+        setHistory(data.records);
+      } catch (error) {
+        if ((error as Error).name !== "AbortError") toast.error("Não foi possível carregar o histórico de chamadas");
+      } finally {
+        setHistoryLoading(false);
+      }
+    }
+    void loadHistory();
+    return () => controller.abort();
   }, [ministry]);
 
   useEffect(() => {
@@ -224,6 +308,7 @@ function AttendanceDialog({ ministry, onClose }: { ministry: Ministry | null; on
         if (!response.ok) throw new Error("Falha ao carregar chamada");
         const data = await response.json() as { members: AttendanceMember[] };
         setMembers(data.members);
+        setMemberSearch("");
       } catch (error) {
         if ((error as Error).name !== "AbortError") toast.error("Não foi possível carregar a chamada");
       } finally {
@@ -260,15 +345,32 @@ function AttendanceDialog({ ministry, onClose }: { ministry: Ministry | null; on
       <section className="resource-dialog attendance-dialog">
         <header><div><strong>Chamada da Escola Bíblica</strong><span>{ministry.name}</span></div><button type="button" onClick={onClose} aria-label="Fechar"><X /></button></header>
         <div className="attendance-toolbar"><label><span>Data</span><input type="date" value={date} onChange={(event) => setDate(event.target.value)} /></label><button onClick={() => setMembers((current) => current.map((member) => ({ ...member, present: true })))}>Marcar todos</button></div>
-        <div className="attendance-list">
-          {loading && <p className="data-empty">Carregando chamada...</p>}
-          {!loading && members.map((member) => (
-            <label key={member.id} className={member.present ? "present" : ""}>
-              <input type="checkbox" checked={member.present} onChange={(event) => setMembers((current) => current.map((item) => item.id === member.id ? { ...item, present: event.target.checked } : item))} />
-              <span><strong>{member.name}</strong><small>{member.email}</small></span>
-            </label>
-          ))}
-          {!loading && !members.length && <p className="data-empty">Este ministério ainda não tem membros vinculados.</p>}
+        <div className="attendance-layout">
+          <section className="attendance-members-panel">
+            <label className="attendance-search"><Search /><input value={memberSearch} onChange={(event) => setMemberSearch(event.target.value)} placeholder="Pesquisar membro..." /></label>
+            <div className="attendance-list">
+              {loading && <p className="data-empty">Carregando chamada...</p>}
+              {!loading && filteredMembers.map((member) => (
+                <label key={member.id} className={member.present ? "present" : ""}>
+                  <input type="checkbox" checked={member.present} onChange={(event) => setMembers((current) => current.map((item) => item.id === member.id ? { ...item, present: event.target.checked } : item))} />
+                  <span><strong>{member.name}</strong><small>{member.email}</small></span>
+                </label>
+              ))}
+              {!loading && !members.length && <p className="data-empty">Este ministério ainda não tem membros vinculados.</p>}
+              {!loading && members.length > 0 && !filteredMembers.length && <p className="data-empty">Nenhum membro encontrado.</p>}
+            </div>
+          </section>
+          <aside className="attendance-history">
+            <h3>Histórico de Chamadas</h3>
+            {historyLoading && <p className="data-empty">Carregando histórico...</p>}
+            {!historyLoading && history.map((item) => (
+              <button className={item.date.slice(0, 10) === date ? "active" : undefined} key={item.id} onClick={() => setDate(item.date.slice(0, 10))}>
+                <strong>{formatAttendanceDate(item.date)}</strong>
+                <span>{item.presentCount}/{item.recordCount} presentes</span>
+              </button>
+            ))}
+            {!historyLoading && !history.length && <p className="data-empty">Nenhuma chamada registrada.</p>}
+          </aside>
         </div>
         <footer><button onClick={onClose} disabled={saving}>Cancelar</button><button className="primary-action" onClick={saveAttendance} disabled={saving || loading}>{saving ? <LoaderCircle className="button-spinner" /> : <BookOpenCheck />}{saving ? "Salvando..." : "Salvar Chamada"}</button></footer>
       </section>
@@ -293,4 +395,8 @@ function nextSunday() {
   const offset = day === 0 ? 0 : 7 - day;
   date.setDate(date.getDate() + offset);
   return date.toISOString().slice(0, 10);
+}
+
+function formatAttendanceDate(value: string) {
+  return new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(value)).replace(".", "");
 }
