@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  Banknote,
+  CalendarDays,
   ChevronLeft,
   Church,
   CircleHelp,
@@ -9,7 +9,7 @@ import {
   ListChecks,
   LogOut,
   Network,
-  Settings,
+  Puzzle,
   UserPlus,
   Users,
 } from "lucide-react";
@@ -21,10 +21,10 @@ const primaryLinks = [
   { label: "Dashboard", icon: LayoutDashboard, href: "/" },
   { label: "Membros", icon: Users, href: "/membros" },
   { label: "Visitantes", icon: UserPlus, href: "/visitantes" },
+  { label: "Calendário", icon: CalendarDays, href: "/calendario" },
   { label: "Atividades", icon: ListChecks, href: "/atividades" },
-  { label: "Financeiro", icon: Banknote, href: "#" },
-  { label: "Células", icon: Network, href: "#" },
-  { label: "Configurações", icon: Settings, href: "#" },
+  { label: "Células", icon: Network, href: "/celulas" },
+  { label: "Ministérios", icon: Puzzle, href: "/ministerios" },
 ];
 
 export function Sidebar({ sidebarRef }: { sidebarRef?: Ref<HTMLElement> }) {

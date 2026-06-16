@@ -6,7 +6,6 @@ import {
   ChevronRight,
   Droplets,
   Eye,
-  Filter,
   Landmark,
   Pencil,
   Plus,
@@ -58,7 +57,7 @@ export default function MembersPage() {
   const [status, setStatus] = useState("all");
   const [baptism, setBaptism] = useState("all");
   const [page, setPage] = useState(1);
-  const [dialogMode, setDialogMode] = useState<"create" | "edit" | null>(null);
+  const [dialogMode, setDialogMode] = useState<"create" | "edit" | "view" | null>(null);
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Member | null>(null);
 
@@ -146,7 +145,7 @@ export default function MembersPage() {
   }
 
   return (
-    <DashboardShell title="Membros" searchValue={search} onSearchChange={(value) => updateFilter(() => setSearch(value))}>
+    <DashboardShell title="Membros">
       <main className="members-main">
         <section className="members-heading">
           <div><h2>Gestão de Membros</h2><p>Visualize, filtre e gerencie todos os membros da congregação.</p></div>
@@ -155,7 +154,6 @@ export default function MembersPage() {
 
         <section className="members-content">
           <div className="member-filters">
-            <span className="filter-label"><Filter />Filtros Avançados</span>
             <select aria-label="Filtrar por ministério" value={ministry} onChange={(event) => updateFilter(() => setMinistry(event.target.value))}>
               <option value="all">Todos os Ministérios</option>
               {ministries.map((item) => <option key={item}>{item}</option>)}
@@ -192,7 +190,7 @@ export default function MembersPage() {
                       <td data-label="Status"><span className={`status-tag ${member.status === "Ativo" ? "is-active" : "is-inactive"}`}><i />{member.status}</span></td>
                       <td data-label="Batismo"><span className={`baptism-tag ${member.baptism === "Batizado" ? "is-baptized" : "is-waiting"}`}>{member.baptism}</span></td>
                       <td data-label="Admissão" className="admission-date">{member.date}</td>
-                      <td data-label="Ações"><div className="member-actions"><button aria-label={`Visualizar ${member.name}`} onClick={() => toast.info(`${member.name} está ${member.status.toLowerCase()} em ${member.ministry}.`)}><Eye /></button><button aria-label={`Editar ${member.name}`} onClick={() => { setSelectedMember(member); setDialogMode("edit"); }}><Pencil /></button><button aria-label={`Excluir ${member.name}`} onClick={() => setDeleteTarget(member)}><Trash2 /></button></div></td>
+                      <td data-label="Ações"><div className="member-actions"><button aria-label={`Visualizar ${member.name}`} onClick={() => { setSelectedMember(member); setDialogMode("view"); }}><Eye /></button><button aria-label={`Editar ${member.name}`} onClick={() => { setSelectedMember(member); setDialogMode("edit"); }}><Pencil /></button><button aria-label={`Excluir ${member.name}`} onClick={() => setDeleteTarget(member)}><Trash2 /></button></div></td>
                     </tr>
                   ))}
                   {!loading && !visibleMembers.length && <tr><td className="members-empty" colSpan={7}>Nenhum membro encontrado com esses filtros.</td></tr>}
@@ -232,7 +230,7 @@ function formatDate(value: string) {
 }
 
 function memberValues(member: Member): Partial<PersonRecordValues> {
-  return { name: member.name, email: member.email, phone: member.phone, birthDate: member.birthDate?.slice(0, 10), gender: member.gender, civilStatus: member.civilStatus, cpf: member.cpf, zipCode: member.zipCode, address: member.address, neighborhood: member.neighborhood, city: member.city, state: member.state, role: member.role, ministry: member.ministry, baptismDate: member.baptismDate?.slice(0, 10), status: member.status, notes: member.notes };
+  return { name: member.name, email: member.email, phone: member.phone, birthDate: member.birthDate?.slice(0, 10), gender: member.gender, civilStatus: member.civilStatus, cpf: member.cpf, zipCode: member.zipCode, address: member.address, neighborhood: member.neighborhood, city: member.city, state: member.state, role: member.role, ministry: member.ministry, cell: member.cell, baptismDate: member.baptismDate?.slice(0, 10), status: member.status, notes: member.notes };
 }
 
 function ministryColor(ministry: string): Member["ministryColor"] {

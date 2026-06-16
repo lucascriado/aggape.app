@@ -13,6 +13,7 @@ export type RecordPayload = {
   state?: string;
   role?: string;
   ministry?: string;
+  cell?: string;
   baptismDate?: string;
   status?: string;
   notes?: string;

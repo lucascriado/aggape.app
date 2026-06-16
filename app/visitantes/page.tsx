@@ -7,17 +7,17 @@ import {
   ClipboardList,
   Download,
   Eye,
-  Filter,
   Pencil,
   PartyPopper,
   Search,
   Trash2,
+  UserCheck,
   UserPlus,
   Users,
 } from "lucide-react";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { AnimatedNumber } from "@/components/animated-number";
-import { DeleteRecordDialog, PersonRecordDialog, PersonRecordValues } from "@/components/person-record-dialog";
+import { ConfirmConvertDialog, DeleteRecordDialog, PersonRecordDialog, PersonRecordValues } from "@/components/person-record-dialog";
 import { toast } from "sonner";
 import { NumberSkeleton, TableSkeleton } from "@/components/skeleton";
 import { visiblePageNumbers } from "@/lib/pagination";
@@ -56,9 +56,11 @@ export default function VisitorsPage() {
   const [status, setStatus] = useState("all");
   const [invitedBy, setInvitedBy] = useState("all");
   const [page, setPage] = useState(1);
-  const [dialogMode, setDialogMode] = useState<"create" | "edit" | null>(null);
+  const [dialogMode, setDialogMode] = useState<"create" | "edit" | "view" | null>(null);
   const [selectedVisitor, setSelectedVisitor] = useState<Visitor | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Visitor | null>(null);
+  const [convertTarget, setConvertTarget] = useState<Visitor | null>(null);
+  const [convertingId, setConvertingId] = useState<string | null>(null);
 
   async function loadVisitors() {
     setLoading(true);
@@ -138,8 +140,28 @@ export default function VisitorsPage() {
     return true;
   }
 
+  async function confirmConvert() {
+    if (!convertTarget) return false;
+    if (convertingId) return false;
+    setConvertingId(convertTarget.id);
+    try {
+      const response = await fetch(`/api/visitors/${convertTarget.id}/convert`, { method: "POST" });
+      if (!response.ok) throw new Error("Falha ao converter visitante");
+      toast.success("Visitante convertido em membro");
+      setConvertTarget(null);
+      setPage(1);
+      await loadVisitors();
+      return true;
+    } catch {
+      toast.error("Não foi possível converter o visitante");
+      return false;
+    } finally {
+      setConvertingId(null);
+    }
+  }
+
   return (
-    <DashboardShell title="Visitantes" searchPlaceholder="Buscar visitantes..." searchValue={search} onSearchChange={(value) => { setSearch(value); setPage(1); }}>
+    <DashboardShell title="Visitantes">
       <main className="visitors-main">
         <section className="visitors-heading">
           <div><h2>Gestão de Visitantes</h2><p>Acompanhe e integre novas pessoas à nossa comunidade.</p></div>
@@ -154,7 +176,6 @@ export default function VisitorsPage() {
         </section>
 
         <div className="member-filters visitor-filters">
-          <span className="filter-label"><Filter />Filtros Avançados</span>
           <select aria-label="Filtrar por status" value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }}>
             <option value="all">Status: Todos</option>
             <option>Aguardando Contato</option><option>Em Acompanhamento</option><option>Integrado</option>
@@ -172,7 +193,7 @@ export default function VisitorsPage() {
             <div className="visitor-tabs">
               {tabs.map((item) => <button className={tab === item ? "active" : undefined} key={item} onClick={() => changeTab(item)}>{item}</button>)}
             </div>
-            <div className="visitor-tools"><button aria-label="Filtrar"><Filter /></button><button aria-label="Exportar"><Download /></button></div>
+            <div className="visitor-tools"><button aria-label="Exportar"><Download /></button></div>
           </div>
           <div className="visitors-table-scroll">
             <table className="visitors-table">
@@ -187,8 +208,8 @@ export default function VisitorsPage() {
                     <td data-label="Status"><span className={`visitor-status ${statusClass(visitor.status)}`}><i />{visitor.status}</span></td>
                     <td data-label="Ações">
                       <div className="member-actions">
-                        <button aria-label={`Visualizar ${visitor.name}`} onClick={() => toast.info(`${visitor.name}: ${visitor.status}.`)}><Eye /></button>
-                        <button aria-label={`Editar ${visitor.name}`} onClick={() => { setSelectedVisitor(visitor); setDialogMode("edit"); }}><Pencil /></button>
+                        <button aria-label={`Visualizar ${visitor.name}`} onClick={() => { setSelectedVisitor(visitor); setDialogMode("view"); }}><Eye /></button>
+                        <button aria-label={`Converter ${visitor.name} em membro`} disabled={convertingId === visitor.id} onClick={() => setConvertTarget(visitor)}><UserCheck /></button><button aria-label={`Editar ${visitor.name}`} onClick={() => { setSelectedVisitor(visitor); setDialogMode("edit"); }}><Pencil /></button>
                         <button aria-label={`Excluir ${visitor.name}`} onClick={() => setDeleteTarget(visitor)}><Trash2 /></button>
                       </div>
                     </td>
@@ -217,6 +238,7 @@ export default function VisitorsPage() {
       </main>
       <PersonRecordDialog open={dialogMode !== null} mode={dialogMode ?? "create"} kind="visitor" initialValues={selectedVisitor ? visitorValues(selectedVisitor) : { status: "Aguardando Contato" }} onClose={() => { setDialogMode(null); setSelectedVisitor(null); }} onSubmit={saveVisitor} />
       <DeleteRecordDialog open={deleteTarget !== null} name={deleteTarget?.name ?? ""} kind="visitor" onClose={() => setDeleteTarget(null)} onConfirm={confirmDelete} />
+      <ConfirmConvertDialog open={convertTarget !== null} name={convertTarget?.name ?? ""} onClose={() => setConvertTarget(null)} onConfirm={confirmConvert} />
     </DashboardShell>
   );
 }

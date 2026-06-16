@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 const weekdays = ["DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SÁB"];
@@ -33,7 +34,7 @@ export function Calendar({ events = [] }: { events?: Array<{ id: string; title: 
         {weekdays.map((day) => <div className="weekday" key={day}>{day}</div>)}
         {days.map((day, index) => {
           const event = !day.outside ? events.find((item) => { const value = new Date(item.startsAt); return value.getFullYear() === year && value.getMonth() === month && value.getDate() === day.number; }) : undefined;
-          return <div className={[day.outside && "outside", event && "selected", event?.color === "green" && "green-day"].filter(Boolean).join(" ")} key={`${day.number}-${index}`}>{day.number}{event && <span className="tag">{event.title}</span>}</div>;
+          return <div className={[day.outside && "outside", event && "selected", event?.color === "green" && "green-day"].filter(Boolean).join(" ")} key={`${day.number}-${index}`}>{day.number}{event && <Link className="tag" href={`/calendario?event=${event.id}`}>{event.title}</Link>}</div>;
         })}
       </div>
     </>

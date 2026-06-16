@@ -27,10 +27,11 @@ export default function ActivitiesPage() {
 
   const pageCount = Math.max(1, Math.ceil(total / 10));
   return (
-    <DashboardShell title="Atividades" searchPlaceholder="Pesquisar atividades..." searchValue={search} onSearchChange={(value) => { setSearch(value); setPage(1); }}>
+    <DashboardShell title="Atividades">
       <main className="activities-main">
         <section className="activities-heading"><h2>Atividades Recentes</h2><p>Visualize o histórico completo de ações e eventos do ministério.</p></section>
         <section className="activities-filters">
+          <label><span>Busca</span><input value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder="Pesquisar atividades..." /></label>
           <label><span>Data</span><select value={date} onChange={(event) => { setDate(event.target.value); setPage(1); }}><option value="all">Todo período</option><option value="today">Hoje</option><option value="week">Últimos 7 dias</option><option value="month">Últimos 30 dias</option></select></label>
           <div><span>Categorias</span><nav>{categories.map((item) => <button className={category === item.value ? "active" : undefined} key={item.value} onClick={() => { setCategory(item.value); setPage(1); }}>{item.label}</button>)}</nav></div>
         </section>

@@ -2,6 +2,7 @@ import { db, query } from "@/lib/db";
 import { addActivity } from "@/lib/activities";
 import { Member, Ministry, Person } from "@/lib/models";
 import { apiError, nullable, personAttributes, RecordPayload, validateRecordPayload } from "@/lib/records";
+import { QueryTypes, type Transaction } from "sequelize";
 
 export const runtime = "nodejs";
 
@@ -41,7 +42,9 @@ export async function POST(request: Request) {
         baptismStatus: payload.baptismDate ? "baptized" : "waiting",
         baptismDate: nullable(payload.baptismDate),
         isNew: true,
+        cellName: payload.cell || "Sem célula",
       }, { transaction });
+      await syncCellMembership(person.id, payload.cell, transaction);
       await addActivity(transaction, "members", "cadastrou um novo membro", payload.name);
       return person.id;
     });
@@ -50,4 +53,13 @@ export async function POST(request: Request) {
   } catch (error) {
     return apiError(error);
   }
+}
+
+async function syncCellMembership(memberId: string, cellName: string | undefined, transaction: Transaction) {
+  await db.query(`DELETE FROM cell_members WHERE member_id = $1`, { bind: [memberId], transaction });
+  if (!cellName || cellName === "Sem célula") return;
+  const rows = await db.query<{ id: string }>(`SELECT id FROM cells WHERE name = $1`, { bind: [cellName], transaction, type: QueryTypes.SELECT });
+  const cell = rows[0];
+  if (!cell) return;
+  await db.query(`INSERT INTO cell_members (cell_id, member_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, { bind: [cell.id, memberId], transaction });
 }

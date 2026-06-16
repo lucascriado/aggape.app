@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Fustat } from "next/font/google";
+import { AppPreferences } from "@/components/app-preferences";
 import "./globals.css";
 
 const fustat = Fustat({
@@ -16,7 +17,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="pt-BR">
-      <body className={fustat.variable}>{children}</body>
+      <body className={fustat.variable}><AppPreferences />{children}</body>
     </html>
   );
 }

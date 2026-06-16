@@ -10,15 +10,9 @@ const sidebarStorageKey = "sib-sidebar-collapsed";
 export function DashboardShell({
   children,
   title,
-  searchPlaceholder = "Buscar membros...",
-  searchValue,
-  onSearchChange,
 }: {
   children: React.ReactNode;
   title: string;
-  searchPlaceholder?: string;
-  searchValue?: string;
-  onSearchChange?: (value: string) => void;
 }) {
   const sidebarRef = useRef<HTMLElement>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -67,7 +61,7 @@ export function DashboardShell({
       <input checked={sidebarCollapsed} className="sidebar-collapse" id="sidebar-collapse" onChange={(event) => setSidebarCollapsed(event.target.checked)} type="checkbox" />
       <Sidebar sidebarRef={sidebarRef} />
       <label className="menu-overlay" htmlFor="menu-toggle" aria-label="Fechar menu" data-sidebar-trigger />
-      <Header title={title} searchPlaceholder={searchPlaceholder} searchValue={searchValue} onSearchChange={onSearchChange} />
+      <Header title={title} />
       {children}
       <Toaster position="top-right" richColors closeButton />
     </>

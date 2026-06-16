@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { Camera, Church, LoaderCircle, MapPin, Save, Trash2, TriangleAlert, UserRound, X } from "lucide-react";
 
 export type PersonKind = "member" | "visitor";
+export type DeleteRecordKind = PersonKind | "cell" | "ministry";
 
 export type PersonRecordValues = {
   name: string;
@@ -20,6 +21,7 @@ export type PersonRecordValues = {
   state: string;
   role: string;
   ministry: string;
+  cell: string;
   baptismDate: string;
   status: string;
   notes: string;
@@ -41,6 +43,7 @@ const emptyValues: PersonRecordValues = {
   state: "São Paulo",
   role: "Membro Comum",
   ministry: "Nenhum",
+  cell: "Sem célula",
   baptismDate: "",
   status: "Ativo",
   notes: "",
@@ -79,15 +82,17 @@ export function PersonRecordDialog({
   onSubmit,
 }: {
   open: boolean;
-  mode: "create" | "edit";
   kind: PersonKind;
   initialValues?: Partial<PersonRecordValues>;
   onClose: () => void;
+  mode: "create" | "edit" | "view";
   onSubmit: (values: PersonRecordValues) => Promise<boolean>;
 }) {
   const [values, setValues] = useState<PersonRecordValues>(() => normalizeValues(initialValues));
   const [submitting, setSubmitting] = useState(false);
   const [zipCodeStatus, setZipCodeStatus] = useState<"idle" | "loading" | "found" | "not-found">("idle");
+  const [ministryOptions, setMinistryOptions] = useState<string[]>(["Nenhum", "Louvor", "Missões", "Acolhimento", "Infantil"]);
+  const [cellOptions, setCellOptions] = useState<string[]>(["Sem célula"]);
 
   useEffect(() => {
     if (open) {
@@ -145,10 +150,37 @@ export function PersonRecordDialog({
     };
   }, [onClose, open]);
 
+  useEffect(() => {
+    if (!open || kind !== "member") return;
+    const controller = new AbortController();
+    async function loadOptions() {
+      try {
+        const [ministriesResponse, cellsResponse] = await Promise.all([
+          fetch("/api/ministries", { signal: controller.signal, cache: "no-store" }),
+          fetch("/api/cells", { signal: controller.signal, cache: "no-store" }),
+        ]);
+        if (ministriesResponse.ok) {
+          const data = await ministriesResponse.json() as { ministries?: Array<{ name: string }> };
+          const names = data.ministries?.map((ministry) => ministry.name).filter(Boolean) ?? [];
+          setMinistryOptions(["Nenhum", ...names.filter((name) => name !== "Nenhum")]);
+        }
+        if (cellsResponse.ok) {
+          const data = await cellsResponse.json() as Array<{ name: string }>;
+          setCellOptions(["Sem célula", ...data.map((cell) => cell.name).filter((name) => name !== "Sem célula")]);
+        }
+      } catch (error) {
+        if ((error as Error).name !== "AbortError") return;
+      }
+    }
+    void loadOptions();
+    return () => controller.abort();
+  }, [kind, open]);
+
   if (!open) return null;
 
   const isMember = kind === "member";
   const label = isMember ? "membro" : "visitante";
+  const readOnly = mode === "view";
 
   function update(field: keyof PersonRecordValues, value: string) {
     setValues((current) => ({ ...current, [field]: value }));
@@ -156,7 +188,7 @@ export function PersonRecordDialog({
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (submitting) return;
+    if (submitting || readOnly) return;
     setSubmitting(true);
     try {
       await onSubmit(values);
@@ -166,16 +198,17 @@ export function PersonRecordDialog({
   }
 
   return (
-    <div className="record-dialog-layer" role="dialog" aria-modal="true" aria-label={`${mode === "create" ? "Novo cadastro" : "Editar registro"} de ${label}`}>
+    <div className="record-dialog-layer" role="dialog" aria-modal="true" aria-label={`${mode === "create" ? "Novo cadastro" : mode === "view" ? "Visualizar registro" : "Editar registro"} de ${label}`}>
       <div className="record-dialog-top">
         <div>
-          <strong>{mode === "create" ? "Novo Cadastro" : "Editar Registro"}</strong>
-          <span>{mode === "create" ? `Cadastre um novo ${label}` : `Atualize os dados de ${values.name}`}</span>
+          <strong>{mode === "create" ? "Novo Cadastro" : mode === "view" ? "Visualizar Registro" : "Editar Registro"}</strong>
+          <span>{mode === "create" ? `Cadastre um novo ${label}` : mode === "view" ? `Consulte os dados de ${values.name}` : `Atualize os dados de ${values.name}`}</span>
         </div>
         <button type="button" disabled={submitting} onClick={onClose} aria-label="Fechar formulário"><X /></button>
       </div>
 
       <form className="record-form" onSubmit={submit}>
+        <fieldset className="record-form-fields" disabled={submitting || readOnly}>
         <aside className="record-photo-card">
           <span className={`record-photo-placeholder ${values.name.trim() ? "has-initials" : ""}`}>
             {values.name.trim() ? initialsFrom(values.name) : <Camera />}
@@ -214,7 +247,8 @@ export function PersonRecordDialog({
           {isMember ? (
             <>
               <Field label="Cargo/Função" required><select required value={values.role} onChange={(event) => update("role", event.target.value)}><option>Membro Comum</option><option>Líder</option><option>Pastor</option></select></Field>
-              <Field label="Ministério Principal" required><select required value={values.ministry} onChange={(event) => update("ministry", event.target.value)}><option>Nenhum</option><option>Louvor</option><option>Missões</option><option>Acolhimento</option><option>Infantil</option></select></Field>
+              <Field label="Ministério Principal" required><select required value={values.ministry} onChange={(event) => update("ministry", event.target.value)}>{ministryOptions.map((option) => <option key={option}>{option}</option>)}</select></Field>
+              <Field label="Célula" required><select required value={values.cell} onChange={(event) => update("cell", event.target.value)}>{cellOptions.map((option) => <option key={option}>{option}</option>)}</select></Field>
               <Field label="Data de Batismo"><input type="date" value={values.baptismDate} onChange={(event) => update("baptismDate", event.target.value)} /></Field>
               <Field label="Situação" required><select required value={values.status} onChange={(event) => update("status", event.target.value)}><option>Ativo</option><option>Inativo</option></select></Field>
             </>
@@ -227,13 +261,16 @@ export function PersonRecordDialog({
           <Field label="Observações / Histórico" wide><textarea value={values.notes} onChange={(event) => update("notes", event.target.value)} placeholder={`Algum detalhe relevante sobre ${isMember ? "o membro" : "o visitante"}...`} /></Field>
         </FormSection>
 
-        <footer className="record-form-actions">
-          <button type="button" className="record-cancel" disabled={submitting} onClick={onClose}>Cancelar</button>
-          <button type="submit" className="record-save" disabled={submitting} aria-busy={submitting}>
-            {submitting ? <LoaderCircle className="button-spinner" /> : <Save />}
-            {submitting ? (mode === "create" ? "Salvando..." : "Alterando...") : mode === "create" ? "Salvar Registro" : "Alterar"}
-          </button>
-        </footer>
+        </fieldset>
+        {!readOnly && (
+          <footer className="record-form-actions">
+            <button type="button" className="record-cancel" disabled={submitting} onClick={onClose}>Cancelar</button>
+            <button type="submit" className="record-save" disabled={submitting} aria-busy={submitting}>
+              {submitting ? <LoaderCircle className="button-spinner" /> : <Save />}
+              {submitting ? (mode === "create" ? "Salvando..." : "Alterando...") : mode === "create" ? "Salvar Registro" : "Alterar"}
+            </button>
+          </footer>
+        )}
       </form>
     </div>
   );
@@ -278,7 +315,7 @@ export function DeleteRecordDialog({
 }: {
   open: boolean;
   name: string;
-  kind: PersonKind;
+  kind: DeleteRecordKind;
   onClose: () => void;
   onConfirm: () => Promise<boolean>;
 }) {
@@ -289,6 +326,19 @@ export function DeleteRecordDialog({
   }, [open]);
 
   if (!open) return null;
+
+  const subjectByKind: Record<DeleteRecordKind, string> = {
+    member: "o membro",
+    visitor: "o visitante",
+    cell: "a célula",
+    ministry: "o ministério",
+  };
+  const relationByKind: Record<DeleteRecordKind, string> = {
+    member: "ministeriais",
+    visitor: "de acompanhamento",
+    cell: "dos membros vinculados",
+    ministry: "ministeriais e chamadas vinculadas",
+  };
 
   async function confirm() {
     if (deleting) return;
@@ -305,9 +355,51 @@ export function DeleteRecordDialog({
       <section className="delete-dialog" role="alertdialog" aria-modal="true" aria-labelledby="delete-title">
         <div className="delete-dialog-body">
           <span className="delete-warning"><TriangleAlert /></span>
-          <div><h2 id="delete-title">Excluir Registro <small>AÇÃO CRÍTICA</small></h2><p>Tem certeza que deseja excluir o registro de <strong>{name}</strong>? Esta ação não poderá ser desfeita e removerá permanentemente todos os dados históricos e vínculos {kind === "member" ? "ministeriais" : "de acompanhamento"}.</p></div>
+          <div><h2 id="delete-title">Excluir Registro <small>AÇÃO CRÍTICA</small></h2><p>Tem certeza que deseja excluir {subjectByKind[kind]} <strong>{name}</strong>? Esta ação não poderá ser desfeita e removerá permanentemente todos os dados históricos e vínculos {relationByKind[kind]}.</p></div>
         </div>
         <footer><button disabled={deleting} onClick={onClose}>Cancelar</button><button className="delete-confirm" disabled={deleting} aria-busy={deleting} onClick={confirm}>{deleting ? <LoaderCircle className="button-spinner" /> : <Trash2 />}{deleting ? "Excluindo..." : "Confirmar Exclusão"}</button></footer>
+      </section>
+    </div>
+  );
+}
+
+export function ConfirmConvertDialog({
+  open,
+  name,
+  onClose,
+  onConfirm,
+}: {
+  open: boolean;
+  name: string;
+  onClose: () => void;
+  onConfirm: () => Promise<boolean>;
+}) {
+  const [converting, setConverting] = useState(false);
+
+  useEffect(() => {
+    if (open) setConverting(false);
+  }, [open]);
+
+  if (!open) return null;
+
+  async function confirm() {
+    if (converting) return;
+    setConverting(true);
+    try {
+      await onConfirm();
+    } finally {
+      setConverting(false);
+    }
+  }
+
+  return (
+    <div className="delete-dialog-layer" onPointerDown={(event) => !converting && event.currentTarget === event.target && onClose()}>
+      <section className="delete-dialog convert-dialog" role="alertdialog" aria-modal="true" aria-labelledby="convert-title">
+        <div className="delete-dialog-body">
+          <span className="delete-warning convert-warning"><UserRound /></span>
+          <div><h2 id="convert-title">Converter Visitante <small>CONFIRMAÇÃO</small></h2><p>Deseja converter <strong>{name}</strong> em membro? O cadastro será movido para membros e deixará de aparecer na lista de visitantes.</p></div>
+        </div>
+        <footer><button disabled={converting} onClick={onClose}>Cancelar</button><button className="convert-confirm" disabled={converting} aria-busy={converting} onClick={confirm}>{converting ? <LoaderCircle className="button-spinner" /> : <UserRound />}{converting ? "Convertendo..." : "Converter"}</button></footer>
       </section>
     </div>
   );

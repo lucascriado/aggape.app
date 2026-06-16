@@ -5,6 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "db:tunnel": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\database\\tunnel.ps1",
+    "db:tunnel:install": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\database\\install-tunnel-task.ps1",
     "start": "next start",
     "typecheck": "tsc --noEmit"
   },

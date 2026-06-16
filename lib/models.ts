@@ -1,4 +1,5 @@
 import { CreationOptional, DataTypes, InferAttributes, InferCreationAttributes, Model } from "sequelize";
+import { randomUUID } from "node:crypto";
 import { db } from "@/lib/db";
 
 export class Person extends Model<InferAttributes<Person>, InferCreationAttributes<Person>> {
@@ -19,7 +20,7 @@ export class Person extends Model<InferAttributes<Person>, InferCreationAttribut
 }
 
 Person.init({
-  id: { type: DataTypes.UUID, primaryKey: true, defaultValue: DataTypes.UUIDV4 },
+  id: { type: DataTypes.UUID, primaryKey: true, defaultValue: () => randomUUID() },
   fullName: { type: DataTypes.STRING(160), allowNull: false, field: "full_name" },
   email: { type: DataTypes.STRING(254), allowNull: false },
   phone: DataTypes.STRING(30),
@@ -42,7 +43,7 @@ export class Ministry extends Model<InferAttributes<Ministry>, InferCreationAttr
 }
 
 Ministry.init({
-  id: { type: DataTypes.UUID, primaryKey: true, defaultValue: DataTypes.UUIDV4 },
+  id: { type: DataTypes.UUID, primaryKey: true, defaultValue: () => randomUUID() },
   name: { type: DataTypes.STRING(80), allowNull: false },
   color: { type: DataTypes.STRING(20), allowNull: false },
 }, { sequelize: db, tableName: "ministries", createdAt: "created_at", updatedAt: "updated_at" });
@@ -66,7 +67,7 @@ Member.init({
   status: { type: DataTypes.STRING(20), allowNull: false },
   baptismStatus: { type: DataTypes.STRING(20), allowNull: false, field: "baptism_status" },
   baptismDate: { type: DataTypes.DATEONLY, field: "baptism_date" },
-  admissionDate: { type: DataTypes.DATEONLY, field: "admission_date", defaultValue: DataTypes.NOW },
+  admissionDate: { type: DataTypes.DATEONLY, field: "admission_date" },
   isNew: { type: DataTypes.BOOLEAN, allowNull: false, field: "is_new" },
   cellName: { type: DataTypes.STRING(120), allowNull: false, field: "cell_name", defaultValue: "Sem célula" },
 }, { sequelize: db, tableName: "members", createdAt: "created_at", updatedAt: "updated_at" });
@@ -81,7 +82,7 @@ export class Visitor extends Model<InferAttributes<Visitor>, InferCreationAttrib
 
 Visitor.init({
   personId: { type: DataTypes.UUID, primaryKey: true, field: "person_id" },
-  visitDate: { type: DataTypes.DATEONLY, field: "visit_date", defaultValue: DataTypes.NOW },
+  visitDate: { type: DataTypes.DATEONLY, field: "visit_date" },
   invitedBy: { type: DataTypes.STRING(160), allowNull: false, field: "invited_by" },
   followUpStatus: { type: DataTypes.STRING(30), allowNull: false, field: "follow_up_status" },
   isRecent: { type: DataTypes.BOOLEAN, allowNull: false, field: "is_recent" },
@@ -98,11 +99,11 @@ export class Activity extends Model<InferAttributes<Activity>, InferCreationAttr
 }
 
 Activity.init({
-  id: { type: DataTypes.UUID, primaryKey: true, defaultValue: DataTypes.UUIDV4 },
+  id: { type: DataTypes.UUID, primaryKey: true, defaultValue: () => randomUUID() },
   category: { type: DataTypes.STRING(30), allowNull: false },
   actor: { type: DataTypes.STRING(120), allowNull: false },
   action: { type: DataTypes.STRING(200), allowNull: false },
   subject: DataTypes.STRING(160),
   details: DataTypes.TEXT,
-  occurredAt: { type: DataTypes.DATE, allowNull: false, field: "occurred_at", defaultValue: DataTypes.NOW },
+  occurredAt: { type: DataTypes.DATE, allowNull: false, field: "occurred_at" },
 }, { sequelize: db, tableName: "activities", createdAt: "created_at", updatedAt: false });
