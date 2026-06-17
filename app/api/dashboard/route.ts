@@ -14,7 +14,14 @@ export async function GET() {
       `),
       query<{ id: string; category: string; actor: string; action: string; subject: string; occurredAt: string }>(`
         SELECT id, category, actor, action, subject, occurred_at AS "occurredAt"
-        FROM activities ORDER BY occurred_at DESC LIMIT 5
+        FROM (
+          SELECT DISTINCT ON (category, actor, action, subject)
+            id, category, actor, action, subject, occurred_at
+          FROM activities
+          ORDER BY category, actor, action, subject, occurred_at DESC
+        ) recent_unique
+        ORDER BY occurred_at DESC
+        LIMIT 5
       `),
       query<{ id: string; name: string; birthDate: string }>(`
         SELECT id, full_name AS name, birth_date AS "birthDate"
