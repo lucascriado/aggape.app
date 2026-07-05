@@ -16,6 +16,7 @@ export type RecordPayload = {
   cell?: string;
   baptismDate?: string;
   status?: string;
+  membershipStage?: string;
   notes?: string;
   invitedBy?: string;
   photoDataUrl?: string;

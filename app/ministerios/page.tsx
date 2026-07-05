@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { Baby, BookOpenCheck, CalendarCheck, Edit3, HeartHandshake, LoaderCircle, Music, Plus, Search, ShieldCheck, Trash2, Users, Video, X } from "lucide-react";
+import { Baby, BookOpenCheck, CalendarCheck, Edit3, Eye, HeartHandshake, LoaderCircle, Music, Plus, Search, ShieldCheck, Trash2, Users, Video, X } from "lucide-react";
 import { toast } from "sonner";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { NumberSkeleton, Skeleton } from "@/components/skeleton";
@@ -166,10 +166,10 @@ export default function MinistriesPage() {
                   <p>{ministry.description || "Sem descrição cadastrada para este ministério."}</p>
                   <small>Líder: {ministry.leaderName || "não definido"}</small>
                   <footer>
-                    <button onClick={() => openForm("view", ministry)}>Visualizar</button>
+                    <button onClick={() => openForm("view", ministry)}><Eye />Ver</button>
                     <button onClick={() => openForm("edit", ministry)}><Edit3 />Editar</button>
                     <button onClick={() => setAttendanceMinistry(ministry)}><BookOpenCheck />Chamada</button>
-                    <button aria-label={`Excluir ${ministry.name}`} onClick={() => setDeleteTarget(ministry)}><Trash2 /></button>
+                    <button className="danger" onClick={() => setDeleteTarget(ministry)}><Trash2 />Excluir</button>
                   </footer>
                 </article>
               ))}

@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { Camera, Church, LoaderCircle, MapPin, Save, Trash2, TriangleAlert, UserRound, X } from "lucide-react";
+import { Camera, Check, Church, LoaderCircle, MapPin, Save, Trash2, TriangleAlert, UserRound, X } from "lucide-react";
 
 export type PersonKind = "member" | "visitor";
 export type DeleteRecordKind = PersonKind | "cell" | "ministry" | "event";
@@ -24,6 +24,7 @@ export type PersonRecordValues = {
   cell: string;
   baptismDate: string;
   status: string;
+  membershipStage: string;
   notes: string;
   invitedBy: string;
   photoDataUrl: string;
@@ -47,12 +48,14 @@ const emptyValues: PersonRecordValues = {
   cell: "Sem célula",
   baptismDate: "",
   status: "Ativo",
+  membershipStage: "Visitou a igreja",
   notes: "",
   invitedBy: "",
   photoDataUrl: "",
 };
 
 const PHOTO_MAX_BYTES = 120 * 1024;
+const membershipStages = ["Visitou a igreja", "Contato realizado", "Visita em casa", "Batismo", "Membro"] as const;
 
 const brazilianStates = [
   "Acre", "Alagoas", "Amapá", "Amazonas", "Bahia", "Ceará", "Distrito Federal",
@@ -294,7 +297,23 @@ export function PersonRecordDialog({
           ) : (
             <>
               <Field label="Quem convidou"><input value={values.invitedBy} onChange={(event) => update("invitedBy", event.target.value)} placeholder="Ex: Pr. Anderson" /></Field>
-              <Field label="Status de acompanhamento" required><select required value={values.status} onChange={(event) => update("status", event.target.value)}><option>Aguardando Contato</option><option>Em Acompanhamento</option><option>Integrado</option></select></Field>
+              <Field label="Membresia" wide>
+                <select value={values.membershipStage} onChange={(event) => update("membershipStage", event.target.value)}>
+                  {membershipStages.map((stage) => <option key={stage}>{stage}</option>)}
+                </select>
+              </Field>
+              <div className="membership-progress wide" aria-label={`Membresia: ${values.membershipStage}`}>
+                {membershipStages.map((stage, index) => {
+                  const currentIndex = membershipStages.indexOf(values.membershipStage as typeof membershipStages[number]);
+                  const reached = index <= Math.max(currentIndex, 0);
+                  return (
+                    <span className={reached ? "reached" : undefined} key={stage}>
+                      <i>{reached ? <Check /> : index + 1}</i>
+                      <small>{stage}</small>
+                    </span>
+                  );
+                })}
+              </div>
             </>
           )}
           <Field label="Observações / Histórico" wide><textarea value={values.notes} onChange={(event) => update("notes", event.target.value)} placeholder={`Algum detalhe relevante sobre ${isMember ? "o membro" : "o visitante"}...`} /></Field>

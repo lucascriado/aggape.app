@@ -79,6 +79,7 @@ export class Visitor extends Model<InferAttributes<Visitor>, InferCreationAttrib
   declare visitDate: CreationOptional<string>;
   declare invitedBy: string;
   declare followUpStatus: string;
+  declare membershipStage: string;
   declare isRecent: boolean;
 }
 
@@ -87,6 +88,7 @@ Visitor.init({
   visitDate: { type: DataTypes.DATEONLY, field: "visit_date" },
   invitedBy: { type: DataTypes.STRING(160), allowNull: false, field: "invited_by" },
   followUpStatus: { type: DataTypes.STRING(30), allowNull: false, field: "follow_up_status" },
+  membershipStage: { type: DataTypes.STRING(30), allowNull: false, field: "membership_stage" },
   isRecent: { type: DataTypes.BOOLEAN, allowNull: false, field: "is_recent" },
 }, { sequelize: db, tableName: "visitors", createdAt: "created_at", updatedAt: "updated_at" });
 

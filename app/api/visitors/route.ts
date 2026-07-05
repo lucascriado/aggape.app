@@ -11,7 +11,7 @@ export async function GET() {
       SELECT id, full_name AS name, email, phone, birth_date AS "birthDate",
         gender, marital_status AS "civilStatus", cpf, zip_code AS "zipCode",
         address, neighborhood, city, state, avatar_url AS "photoDataUrl", notes, visit_date AS date,
-        invited_by AS "invitedBy", follow_up_status AS status, is_recent AS recent
+        invited_by AS "invitedBy", membership_stage AS "membershipStage", is_recent AS recent
       FROM visitor_directory ORDER BY visit_date DESC, full_name
     `);
     return Response.json(rows);
@@ -31,7 +31,8 @@ export async function POST(request: Request) {
       await Visitor.create({
         personId: person.id,
         invitedBy: payload.invitedBy || "Espontâneo",
-        followUpStatus: visitorStatus(payload.status),
+        followUpStatus: visitorStatus(payload.membershipStage),
+        membershipStage: membershipStage(payload.membershipStage),
         isRecent: true,
       }, { transaction });
       await addActivity(transaction, "visitors", "registrou uma nova visita de", payload.name);
@@ -44,8 +45,16 @@ export async function POST(request: Request) {
   }
 }
 
-function visitorStatus(status?: string) {
-  if (status === "Integrado") return "integrated";
-  if (status === "Em Acompanhamento") return "following_up";
+function visitorStatus(stage?: string) {
+  if (stage === "Membro") return "integrated";
+  if (stage && stage !== "Visitou a igreja") return "following_up";
   return "waiting_contact";
+}
+
+function membershipStage(stage?: string) {
+  if (stage === "Membro") return "member";
+  if (stage === "Batismo") return "baptism";
+  if (stage === "Visita em casa") return "home_visit";
+  if (stage === "Contato realizado") return "contacted";
+  return "visited";
 }
