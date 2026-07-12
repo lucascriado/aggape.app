@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 
-const preferencesKey = "sib-app-preferences";
+const preferencesKey = "nonia-app-preferences";
 
 type Preferences = {
   theme?: "light" | "dark";
@@ -23,7 +23,7 @@ export function savePreferences(preferences: Preferences) {
   const next = { ...readPreferences(), ...preferences };
   window.localStorage.setItem(preferencesKey, JSON.stringify(next));
   applyPreferences(next);
-  window.dispatchEvent(new CustomEvent("sib-preferences-change", { detail: next }));
+  window.dispatchEvent(new CustomEvent("nonia-preferences-change", { detail: next }));
   return next;
 }
 

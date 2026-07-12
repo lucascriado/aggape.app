@@ -1,4 +1,4 @@
-BEGIN;
+-- Views que alimentam as listagens de membros e visitantes.
 
 CREATE OR REPLACE VIEW member_directory AS
 SELECT
@@ -26,7 +26,8 @@ SELECT
   m.admission_date,
   m.is_new,
   m.created_at,
-  m.updated_at
+  m.updated_at,
+  m.cell_name
 FROM members m
 JOIN people p ON p.id = m.person_id
 LEFT JOIN ministries mi ON mi.id = m.ministry_id;
@@ -53,8 +54,7 @@ SELECT
   v.follow_up_status,
   v.is_recent,
   v.created_at,
-  v.updated_at
+  v.updated_at,
+  v.membership_stage
 FROM visitors v
 JOIN people p ON p.id = v.person_id;
-
-COMMIT;

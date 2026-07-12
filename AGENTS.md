@@ -1,7 +1,8 @@
-# SIB Mirassol - Instrucoes para agentes
+# Nonia - Instrucoes para agentes
 
 ## Visao geral
 
+- Nonia (nonia.io) e uma plataforma de gestao ministerial.
 - Aplicacao Next.js 16 com App Router, React 19, TypeScript e CSS global.
 - Backend em Route Handlers Node dentro de `app/api`.
 - PostgreSQL acessado por Sequelize v6, com SQL explicito nas consultas.
@@ -51,7 +52,10 @@ git diff --check
 
 - A variavel obrigatoria e `DATABASE_URL`; nunca versione credenciais reais.
 - Migrations ficam em `database/migrations/` e devem ser executadas em ordem.
-- Use `database/migrate.ps1`; ele registra arquivos em `schema_migrations`.
+- Use `npm run db:migrate` (database/migrate.mjs); ele registra arquivos em
+  `schema_migrations`. Em producao as migrations rodam no boot do container.
+- Dados de demonstracao ficam em `database/seeds/dev_seed.sql` e so entram
+  com `npm run db:seed:dev`; nunca coloque seeds em migrations.
 - `people` concentra dados pessoais compartilhados.
 - `members` e `visitors` referenciam `people` por `person_id`.
 - `activities` alimenta a Dashboard e a tela de historico.

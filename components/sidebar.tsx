@@ -3,7 +3,6 @@
 import {
   CalendarDays,
   ChevronLeft,
-  Church,
   CircleHelp,
   LayoutDashboard,
   ListChecks,
@@ -34,8 +33,12 @@ export function Sidebar({ sidebarRef }: { sidebarRef?: Ref<HTMLElement> }) {
     <aside className="sidebar" ref={sidebarRef}>
       <div className="brand">
         <Link className="brand-link" href="/" aria-label="Ir para a dashboard" title="Dashboard">
-          <span className="brand-icon"><Church /></span>
-          <span className="brand-text"><strong>SIB Mirassol</strong><small>Gestão ministerial</small></span>
+          <span className="brand-icon" aria-hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M7 18V6l10 12V6" />
+            </svg>
+          </span>
+          <span className="brand-text"><strong>Nonia</strong><small>Gestão ministerial</small></span>
         </Link>
         <label className="sidebar-collapse-button" htmlFor="sidebar-collapse" aria-label="Recolher menu" title="Recolher menu">
           <ChevronLeft />
@@ -51,7 +54,7 @@ export function Sidebar({ sidebarRef }: { sidebarRef?: Ref<HTMLElement> }) {
       </nav>
 
       <nav className="nav-list nav-footer" aria-label="Navegação secundária">
-        <a href="#" title="Suporte"><CircleHelp /><span>Suporte</span></a>
+        <a href="mailto:suporte@nonia.io" title="Suporte"><CircleHelp /><span>Suporte</span></a>
         <a href="#" title="Sair"><LogOut /><span>Sair</span></a>
       </nav>
     </aside>

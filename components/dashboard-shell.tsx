@@ -5,7 +5,7 @@ import { Header } from "@/components/header";
 import { Sidebar } from "@/components/sidebar";
 import { Toaster } from "sonner";
 
-const sidebarStorageKey = "sib-sidebar-collapsed";
+const sidebarStorageKey = "nonia-sidebar-collapsed";
 
 export function DashboardShell({
   children,
@@ -21,6 +21,10 @@ export function DashboardShell({
   useEffect(() => {
     setSidebarCollapsed(window.localStorage.getItem(sidebarStorageKey) === "true");
   }, []);
+
+  useEffect(() => {
+    document.title = title === "Dashboard" ? "Nonia" : `${title} | Nonia`;
+  }, [title]);
 
   useEffect(() => {
     function closeSidebarOnOutsideClick(event: PointerEvent) {

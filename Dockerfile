@@ -6,19 +6,25 @@ RUN npm ci
 FROM node:22-alpine AS builder
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
+# URL fictícia apenas para o build; nenhuma conexão é aberta nesta etapa.
 ENV DATABASE_URL=postgresql://build:build@localhost:5432/build
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build
-RUN npm prune --omit=dev
 
 FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
-COPY --from=builder /app/package*.json ./
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/public ./public
+ENV PORT=3000
+ENV HOSTNAME=0.0.0.0
+RUN addgroup -S nodejs && adduser -S nextjs -G nodejs
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/database ./database
+USER nextjs
 EXPOSE 3000
-CMD ["npm", "run", "start"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+  CMD wget -qO- http://127.0.0.1:3000/api/health || exit 1
+CMD ["sh", "-c", "node database/migrate.mjs && node server.js"]

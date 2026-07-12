@@ -1,12 +1,12 @@
 {
-  "name": "sib-mirassol",
+  "name": "nonia",
   "version": "1.0.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "db:tunnel": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\database\\tunnel.ps1",
-    "db:tunnel:install": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\database\\install-tunnel-task.ps1",
+    "db:migrate": "node database/migrate.mjs",
+    "db:seed:dev": "node database/migrate.mjs --seed-dev",
     "start": "next start",
     "typecheck": "tsc --noEmit"
   },

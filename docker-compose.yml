@@ -1,0 +1,29 @@
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://nonia:${POSTGRES_PASSWORD:-nonia}@db:5432/nonia
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: nonia
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-nonia}
+      POSTGRES_DB: nonia
+    volumes:
+      - nonia-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nonia -d nonia"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  nonia-db-data:

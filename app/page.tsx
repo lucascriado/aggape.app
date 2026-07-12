@@ -117,8 +117,8 @@ function birthdayDate(value: string) {
 }
 
 function birthdayWhatsappLink(name: string) {
-  const message = `Olá, ${name}! A SIB Mirassol deseja um feliz aniversário, com muita graça, paz e bênçãos neste novo ciclo.`;
-  return `https://wa.me/5517996743063?text=${encodeURIComponent(message)}`;
+  const message = `Olá, ${name}! Desejamos um feliz aniversário, com muita graça, paz e bênçãos neste novo ciclo.`;
+  return `https://wa.me/?text=${encodeURIComponent(message)}`;
 }
 
 function monthShort(value: string) {
